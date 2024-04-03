@@ -1,1 +1,52 @@
-# s3 bucket: s3://tech-team-data/state-drinking-water/TX/clean/app/
+---
+title: "TX Drinking Water Application - Data Prep"
+author: "EmmaLi Tsai and Gabe Watson"
+date: "2024-04-03"
+last_updated: "2024-04-03"
+output: html_document
+---
+
+## Packages 
+```{r}
+library(tidyverse)
+library(aws.s3)
+library(sf)
+```
+
+## Data lists
+```{r}
+# loading lists of data 
+demo <- aws.s3::s3read_using(readRDS, 
+                             object = "s3://tech-team-data/state-drinking-water/TX/clean/TX_demographic_list.RData")
+keys <- aws.s3::s3read_using(readRDS, 
+                             object = "s3://tech-team-data/state-drinking-water/TX/clean/TX_merging_keys_list.RData")
+```
+
+## Creating test data: 
+```{r}
+# grabbing some sample stats: 
+analysis_keys <- keys$analysis_keys 
+sabs <- demo$census %>%
+  select(pwsid, primary_source_code, area_miles, pop_density, estimate_total_pop,
+         estimate_hisp_alone_per, estimate_laborforce_unemployed_per, 
+         estimate_hh_below_pov_per) %>%
+  as.data.frame() 
+
+# reorganizing for clarity: 
+app_test_df <- analysis_keys %>%
+  left_join(sabs) %>%
+  relocate(primary_source_code:pop_density, .after = east_tx_flag)  %>%
+  relocate(estimate_total_pop:estimate_hh_below_pov_per, .after = estimate_mhi)
+```
+
+## Saving test data to s3: 
+```{r}
+tmp <- tempfile()
+st_write(app_test_df, dsn = paste0(tmp, ".geojson"))
+on.exit(unlink(tmp))
+put_object(
+  file = paste0(tmp, ".geojson"),
+  object = "/state-drinking-water/TX/clean/app/app_test_data.geojson",
+  bucket = "tech-team-data",
+)
+```
