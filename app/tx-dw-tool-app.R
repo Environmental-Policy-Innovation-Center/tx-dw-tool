@@ -11,6 +11,8 @@ library(aws.s3)
 library(geojsonsf)
 library(leaflet.extras)
 library(htmltools)
+library(dplyr)
+library(bivariatechoropleths)
 ###########
 ### UI #### 
 ###########
@@ -31,6 +33,7 @@ ui <- fluidPage(
            style = "position: fixed; height: 82%; overflow-y: auto; margin-left: -30px;", div(style = "display:inline-block; float:right; margin-bottom: 20px"),
            width = 4,
            uiOutput("SelectGeography", style = "width: 100%"), 
+           uiOutput("VarOne", style = "width: 100%"), 
          )),
            mainPanel(
              style = "margin-left: -15px;",
@@ -58,33 +61,75 @@ tx_raw <- aws.s3::s3read_using(st_read,
 ################
 Controller <- reactiveValues()
 
-Controller$data <- tx_raw %>%
-                   data.frame()%>%
-                   select(-c(geometry))
+Controller$data <- tx_raw 
 
-Controller$geo <-  tx_raw %>%
-                   select(pwsid, geometry)
+Counties <- unique(tx_raw$county_served)
 
+Controller$data_select <- isolate(Controller$data)
 
 ################
 ### Observes ###
 ################
 
+## Responds to changes in 'Geography' selection
+## TO DO: Fix Flashing (ONLY remove pwsids that are present currently, but not in new Controller$data_select)
+observeEvent(input$Geography,{
+  
+removepwsid <- Controller$data_select$pwsid
+
+Controller$data_select <- Controller$data  %>%
+                          filter(county_served %in% input$Geography)
+
+colvar <-  Controller$data_select %>% pull(!!input$VarOne)
+
+pal <- colorNumeric(
+  palette = "Blues",
+  domain = colvar)
+
+leafletProxy("Map")%>%
+  removeShape(layerId = removepwsid)%>%
+  addPolygons(data = Controller$data_select, 
+              layerId = ~pwsid,
+              label = ~htmlEscape(pwsid),
+              color = ~pal(colvar),
+              weight = 1.5,
+              fill = "grey",
+              opacity = .5)
+
+}, ignoreInit = TRUE, ignoreNULL = TRUE)
+
+## Responds to changes in Variable selection 
+observeEvent(input$VarOne, {
+  
+  colvar <-  Controller$data_select %>% pull(!!input$VarOne)
+  pal <- colorNumeric(
+    palette = "Blues",
+    domain = colvar)
+
+  
+  leafletProxy("Map")%>%
+  clearShapes()%>%
+  addPolygons(data = Controller$data_select,
+              layerId = ~pwsid,
+              label = ~htmlEscape(pwsid),
+              color = ~pal(colvar),
+              weight = 1.5,
+              fill = "grey",
+              opacity = .5)
+
+  
+}, ignoreInit = TRUE, ignoreNULL = TRUE)
+
+
 ################
 #### Map #######
 ################
-
+## TO DO 
+## Add UpdateLeaflet for data_select
 output$Map <- renderLeaflet({
   leaflet(options = leafletOptions(minZoom = 1, maxZoom = 10))%>%
-              addPolygons(data = Controller$geo, 
-                          layerId = ~pwsid,
-                          label = ~htmlEscape(pwsid),
-                          color = "black",
-                          weight = 1.5,
-                          fill = "grey",
-                          opacity = .5)%>%
               addProviderTiles(providers$CartoDB.Positron, group = "Toner Lite")%>%
-              setView(-95.5795, 36.8283, zoom = 4)
+              setView(-100.00, 31.0, zoom = 6)
 })
 
 
@@ -94,10 +139,15 @@ output$Map <- renderLeaflet({
 
 ## Geography Filter ##
 ## To DO: 
-## Add regions 
-## Add missing counties 
+## Add regions (.rmd)
+## Add missing counties (.rmd)
 output$SelectGeography <- renderUI({
-selectizeInput("Geography","Select a Geography", choices = unique(Controller$data$county_served))
+selectizeInput("Geography","Select a Geography", choices = Counties, selected = "ANGELINA" , multiple = TRUE)
+})
+
+## Variable Select
+output$VarOne <- renderUI({
+selectInput("VarOne", "Select a variable", choices = Controller$data %>% select(area_miles:total_violations_5yr) %>% colnames())
 })
 
 ################
