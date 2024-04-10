@@ -6,6 +6,11 @@ last_updated: "2024-04-03"
 output: html_document
 ---
 
+## TO DO: 
+## utilities with no county served 
+## str_to_title county served 
+## add utility name
+
 ## Packages 
 ```{r}
 library(tidyverse)
@@ -20,6 +25,10 @@ demo <- aws.s3::s3read_using(readRDS,
                              object = "s3://tech-team-data/state-drinking-water/TX/clean/TX_demographic_list.RData")
 keys <- aws.s3::s3read_using(readRDS, 
                              object = "s3://tech-team-data/state-drinking-water/TX/clean/TX_merging_keys_list.RData")
+
+tx_sab_simplified <- aws.s3::s3read_using(st_read, 
+                                   object = "state-drinking-water/TX/clean/app/tx_sab_simplified.geojson",
+                                   bucket = "tech-team-data")
 ```
 
 ## Creating test data: 
@@ -39,14 +48,24 @@ app_test_df <- analysis_keys %>%
   relocate(estimate_total_pop:estimate_hh_below_pov_per, .after = estimate_mhi)
 ```
 
+
+## Joining to simplified GeoJson for quicker load times on app
+## Simplified using Mapshapper.com - can likely automate this - went from 71.1mb to 11.5mb!
+```{r}
+app_test_df_simplified <- app_test_df %>%
+                    data.frame()%>%
+                    select(-c(geometry))%>%
+                    left_join(.,tx_sab_simplified)
+
+```
 ## Saving test data to s3: 
 ```{r}
 tmp <- tempfile()
-st_write(app_test_df, dsn = paste0(tmp, ".geojson"))
+st_write(app_test_df_simplified, dsn = paste0(tmp, ".geojson"))
 on.exit(unlink(tmp))
 put_object(
   file = paste0(tmp, ".geojson"),
-  object = "/state-drinking-water/TX/clean/app/app_test_data.geojson",
+  object = "/state-drinking-water/TX/clean/app/app_test_data_simplified.geojson",
   bucket = "tech-team-data",
 )
 ```
