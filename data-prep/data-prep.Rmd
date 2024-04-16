@@ -33,12 +33,26 @@ tx_sab_simplified <- aws.s3::s3read_using(st_read,
 
 ## Creating test data: 
 ```{r}
-# grabbing some sample stats: 
+# grabbing some sample stats - adding pop categories and ownership type 
+# TO DO: clean this section up and make dedicate spaces for variable additions/modifications
+
+
+owner_type_code <- c("F","L","M","N","P","S")
+## from sdwis
+owner_type_description <-c("Federal Government","Local Government","Public/Private","Native American","Private","State Government")
+owner_type_merge <- data.frame(owner_type_code,owner_type_description)
+
 analysis_keys <- keys$analysis_keys 
 sabs <- demo$census %>%
-  select(pwsid, primary_source_code, area_miles, pop_density, estimate_total_pop,
+        mutate(pop_catagories = ifelse(estimate_total_pop > 0, "Very Small 0-1k", "Very Small (0 - 1,000)"))%>%
+        mutate(pop_catagories = ifelse(estimate_total_pop >= 1001, "Small 1k-3.3k", pop_catagories))%>%
+        mutate(pop_catagories = ifelse(estimate_total_pop >= 3301, "Medium 3.3k-10k", pop_catagories))%>%
+        mutate(pop_catagories = ifelse(estimate_total_pop >= 10001, "Large 10k-100k", pop_catagories))%>%
+        mutate(pop_catagories = ifelse(estimate_total_pop > 100000, "Very Large 100k+", pop_catagories))%>%
+        left_join(owner_type_merge)%>%
+  select(pwsid, county_served, area_miles, pop_density, estimate_total_pop,
          estimate_hisp_alone_per, estimate_laborforce_unemployed_per, 
-         estimate_hh_below_pov_per, primacy_type,primary_source_code, tier) %>%
+         estimate_hh_below_pov_per, pop_catagories,owner_type_description,primary_source_code, tier) %>%
   as.data.frame() 
 
 # reorganizing for clarity: 

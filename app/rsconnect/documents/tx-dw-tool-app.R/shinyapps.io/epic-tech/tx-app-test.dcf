@@ -5,7 +5,7 @@ account: epic-tech
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 11731254
-bundleId: 8500887
+bundleId: 8501912
 url: https://epic-tech.shinyapps.io/tx-app-test/
 version: 1
 asMultiple: FALSE
