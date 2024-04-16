@@ -38,7 +38,7 @@ analysis_keys <- keys$analysis_keys
 sabs <- demo$census %>%
   select(pwsid, primary_source_code, area_miles, pop_density, estimate_total_pop,
          estimate_hisp_alone_per, estimate_laborforce_unemployed_per, 
-         estimate_hh_below_pov_per) %>%
+         estimate_hh_below_pov_per, primacy_type,primary_source_code, tier) %>%
   as.data.frame() 
 
 # reorganizing for clarity: 
