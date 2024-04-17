@@ -16,6 +16,26 @@ library(bivariatechoropleths)
 library(ggplot2)
 library(plotly)
 library(shinybusy)
+library(stringr)
+library(scales)
+
+## TICKET LIST
+## Fixes 
+##    Pull down no data handling 
+##    No data selected during histogram selection 
+##    Map flashing on render
+## Enhancements 
+##.   Popups 
+##.   Region filters
+##.   App ready variable names
+##.   variable type groupings for pulldowns 
+##.   Documentation workflow 
+##.   Table 
+##.   Report 
+
+
+
+
 ###########
 ### UI #### 
 ###########
@@ -37,9 +57,9 @@ ui <- fluidPage(
          sidebarPanel(
            style = "position: fixed; height: 82%; width: 100%; overflow-y: auto; margin-left: -30px;", div(style = "display:inline-block; float:right; margin-bottom: 20px"),
            width = 4,
-           htmlOutput("PlotlyData"),
            uiOutput("SelectGeography", style = "width: 100%"), 
            uiOutput("SelectCat",style = "width: 100%"),
+           uiOutput("SummaryStats", style = "margin-bottom: 10px"),
            uiOutput("VarOne", style = "width: 100%"), 
            plotlyOutput("VarOneHist", width = "250px", height = "150px"),
            uiOutput("VarTwo", style = "width: 100%"), 
@@ -92,6 +112,8 @@ observeEvent(ignoreInit = TRUE,
                   input$VarOne, 
                   input$VarTwo, 
                   input$Geography, input$Catagory, event_one(), event_two()), {
+                    
+show_spinner() 
                     
 ## Remove pwsids not selected in new geo_select         
 removepwsid <- Controller$data_select$pwsid
@@ -203,6 +225,8 @@ else
                 opacity = .75)%>%
     addLegend(pal = pal, values = colvar,  position = "bottomleft")
 }
+
+hide_spinner()
 })
 ################
 #### Map #######
@@ -225,7 +249,14 @@ output$Map <- renderLeaflet({
 ## Add regions (.rmd)
 ## Add missing counties (.rmd)
 output$SelectGeography <- renderUI({
-selectizeInput("Geography","Select a Geography", choices = c("All",Counties), selected = Counties[2:10] , multiple = TRUE)
+  SelectedCounties <- Controller$data %>%
+              filter(east_tx_flag == "yes")%>%
+              pull(county_served)%>%
+              unique()
+  
+ #SelectedCounties <- c("ANGELINA", "NACOGDOCHES","HOUSTON")
+  
+selectizeInput("Geography","Select a Geography", choices = c("All",Counties), selected = SelectedCounties, multiple = TRUE)
 })
 
 output$SelectCat <- renderUI({
@@ -236,13 +267,35 @@ output$SelectCat <- renderUI({
   Choices$primary_source_code <- unique(Controller$data$primary_source_code)
   Choices$pop_catagories <- unique(Controller$data$pop_catagories)
   Choices$tier <- unique(Controller$data$tier)
-
+  
   selectizeInput("Catagory", "Select a Utility Type", choices = Choices, selected = Choices$all[1], multiple = TRUE)
+})
+
+output$SummaryStats <- renderUI({
+  
+  ## Number of selected utilities
+  ## Total population served
+  ## Median Household Income
+  ## Percent of Color 
+  
+  UtilityCount <- paste("<b>", "Utility Count:", scales::number(length(unique(Controller$data_select$pwsid)), big.mark = ","),"</b>", "<br>")
+  Population <- paste("<b>", "Utility Users:", scales::number(sum(Controller$data_select$estimate_total_pop), big.mark = ","),"</b>", "<br>")
+  MHI <- paste("<b> ", "Avg. Median Household Income:", dollar(mean(Controller$data_select$estimate_mhi, na.rm = TRUE)),"</b>", "<br>")
+ # POC <- paste("<b>", "Percent of Color:", scales::percent(mean(Controller$data_select$estimate_poc_alone_per, na.rm = TRUE), accuracy = 2, suffix = "%") ,"</b>", "<br>")
+  POC <- paste("<b>", "Percent of Color:", scales::percent(mean(Controller$data_select$estimate_poc_alone_per, na.rm = TRUE) / 100) ,"</b>", "<br>")
+  
+  tagList(
+    HTML(UtilityCount),
+    HTML(Population), 
+    HTML(POC),
+    HTML(MHI)
+  )
+  
 })
 
 ## Variable One Select
 output$VarOne <- renderUI({
-selectInput("VarOne", "Select a variable", choices = Controller$data %>% select(estimate_mhi:total_violations_5yr) %>% colnames())
+selectInput("VarOne", "Select a variable to map", choices = Controller$data %>% select(estimate_mhi:total_violations_5yr) %>% colnames())
 })
 
 # Variable One Hist

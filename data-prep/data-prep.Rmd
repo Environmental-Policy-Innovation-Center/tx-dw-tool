@@ -81,5 +81,6 @@ put_object(
   file = paste0(tmp, ".geojson"),
   object = "/state-drinking-water/TX/clean/app/app_test_data_simplified.geojson",
   bucket = "tech-team-data",
+  acl = "public-read"
 )
 ```
