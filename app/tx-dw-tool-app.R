@@ -18,12 +18,19 @@ library(plotly)
 library(shinybusy)
 library(stringr)
 library(scales)
+library(shinyalert)
+library(reactable)
+library(shinyjs)
+library(shinycssloaders)
+library(purrr)
 
 ## TICKET LIST
 ## Fixes 
-##    Pull down no data handling 
-##    No data selected during histogram selection 
+##    xPull down no data handling 
+##    xNo data selected during histogram selection 
 ##    Map flashing on render
+##    Fix same variable clashing 
+##.   Make utility type filter cumulative
 ## Enhancements 
 ##.   Popups 
 ##.   Region filters
@@ -43,8 +50,8 @@ ui <- fluidPage(
   
   add_busy_spinner(spin = "fading-circle"),
   # detect(),
-  # useWaitress(),
-  # useShinyjs(),
+   #useWaitress(),
+   useShinyjs(),
   # tags$head(
   #   tags$style(HTML(".leaflet-container { background: #FFFFFF;} 
   #                   .sidebar form.well { background: transparent;border: 0px;} 
@@ -55,7 +62,7 @@ ui <- fluidPage(
   sidebarLayout(
     div( id ="sidebar",
          sidebarPanel(
-           style = "position: fixed; height: 82%; width: 100%; overflow-y: auto; margin-left: -30px;", div(style = "display:inline-block; float:right; margin-bottom: 20px"),
+           style = "position: fixed; height: 100%; width: 100%; overflow-y: auto; margin-left: -30px;", div(style = "display:inline-block; float:right; margin-bottom: 20px"),
            width = 4,
            uiOutput("SelectGeography", style = "width: 100%"), 
            uiOutput("SelectCat",style = "width: 100%"),
@@ -64,11 +71,13 @@ ui <- fluidPage(
            plotlyOutput("VarOneHist", width = "250px", height = "150px"),
            uiOutput("VarTwo", style = "width: 100%"), 
            plotlyOutput("VarTwoHist", width = "250px", height = "150px"),
+           actionButton("Context", "Table or Map",icon(name = "arrows-left-right", lib = "font-awesome"),style = "margin-bottom: 10px;"), 
            
          )),
            mainPanel(
              style = "margin-left: -15px;",
              leafletOutput("Map", height = "100vh"),
+             hidden(uiOutput("Table", style = "margin-left: 5px; background-color: none;", width = "100px")),
              width = 8),
            
            position = c("right"), fluid = TRUE),
@@ -94,9 +103,28 @@ Controller <- reactiveValues()
 Controller$data <- tx_raw 
 
 Counties <- unique(tx_raw$county_served)
-
+   
 event_one <- reactive(event_data(event = "plotly_selected", source = "a", priority = "event"))
 event_two <- reactive(event_data(event = "plotly_selected", source = "b", priority = "event"))
+
+## Building catagorical filters here so they can be acessed in pull down and logic handler
+columns <- c("owner_type_description","primary_source_code","pop_catagories","tier")
+
+CatChoices <- isolate(Controller$data) %>%
+  data.frame()%>%
+  select(all_of(columns))%>%
+  summarise_all(~ list(unique(.))) %>%
+  as.list()
+
+## TO DO: delete this stupid loop - produced from the above code but can't find a way to delete the indexes without looping!
+for (i in 1:length(CatChoices)) {
+  CatChoices[[i]] <- CatChoices[[i]][[1]]
+}
+
+## adding an all catagory
+CatChoices$all <- c("All Types","")
+
+
 ################
 ### Observes ###
 ################
@@ -104,7 +132,9 @@ event_two <- reactive(event_data(event = "plotly_selected", source = "b", priori
 ## Responds to changes in 'Geography' selection
 ## TO DO: Fix Flashing (ONLY remove pwsids that are present currently, but not in new Controller$data_select)
 
-## Observe Event
+######################################
+## Observe Event for Application Logic
+######################################
 observeEvent(ignoreInit = TRUE, 
              list(input$Bivariate, 
                   # this isolate prevents rerendering loop 
@@ -113,10 +143,18 @@ observeEvent(ignoreInit = TRUE,
                   input$VarTwo, 
                   input$Geography, input$Catagory, event_one(), event_two()), {
                     
+currentpwsid <- unique(Controller$data_select$pwsid) 
+ 
+## show spinner                                        
 show_spinner() 
                     
-## Remove pwsids not selected in new geo_select         
-removepwsid <- Controller$data_select$pwsid
+if(length(input$Geography) == 0 | length(input$Catagory) == 0 | input$VarOne == input$VarTwo)
+{
+  showNotification(id = "notification", "Insufficent data selected or duplicate variables chosen, please change selection" ,type = "warning")
+}
+else
+{
+                    
 
 if(!str_detect(paste(input$Geography, collapse = "|"),"All"))
 {
@@ -130,9 +168,7 @@ else
 }
  
 ## TO DO: Sort out logic here
-## minimum data handling
-## charts reflecting each other when shrinking data 
-## event one handling
+## Clean this out
 if(!is.null(event_one()))
 {
   event_one_max <- max(event_one()$x, na.rm = TRUE)
@@ -155,7 +191,7 @@ else
   event_two_min <- min(Controller$data_select %>% pull(!!input$VarTwo), na.rm = TRUE)
 }
 
-## selecting based on categorical filters
+## selecting based on categorical filters (if its all types select all, if not select proper fields)
 if(!str_detect(paste(input$Catagory, collapse = "|"),"All Types"))
 {
   #print(input$Catagory)
@@ -175,8 +211,20 @@ Data <- Controller$data_select %>%
   filter(!!as.symbol(input$VarTwo) >= event_two_min) 
 }
 
+## insufficent data notification 
+if(nrow(Data) < 3)
+{
+  showNotification(id = "notification", "Insufficent data, please select more utilities" ,type = "warning")
+}
+else
+{
+
 # sets the data back to Controller$data_selected for UI outputs and prevents rerendering within the massive observeEvent... 
 isolate(Controller$data_select <- Data)
+  
+# remove pwsids in current view that are not in the new view
+# removepwsid <- currentpwsid[!currentpwsid %in% Data$pwsid]
+# print(removepwsid)
 
 ## If Bivariate is chosen - map color scale is different
 ## TO DO: can likely make this a lot shorter with passing the first leaflet changes to a var
@@ -190,18 +238,19 @@ if(input$Bivariate == TRUE)
                 layerId = ~pwsid,
                 label = ~htmlEscape(pwsid),
                 weight = 1.5,
-                fill = "grey",
+               # fill = "grey",
                 opacity = .5)%>%
     bivariatechoropleths::addBivariateChoropleth(
       map_data = Data,
-      var1_name = input$VarOne,
-      var2_name = input$VarTwo,
+      var1_name = input$VarTwo,
+      var2_name = input$VarOne,
       ntiles= 3,
-      var1_label = input$VarOne,
-      var2_label = input$VarTwo,
+      var1_label = input$VarTwo,
+      var2_label = input$VarOne,
       weight = 1,
       fillOpacity = 0.7,
-      color = "grey")
+      color = "black", 
+      paletteFunction = pals::tolochko.redblue)
 }
 else
 {
@@ -209,35 +258,52 @@ else
   colvar <-  Data %>% pull(!!input$VarOne)
   
   pal <- colorQuantile(
-    palette = "Blues",
-    domain = unique(colvar))
+    palette = "Reds",
+   # palette = c("#bdc9e1","#74a9cf","#2b8cbe","#045a8d","#012169"),
+    n = 5,
+    domain = colvar)
   
   leafletProxy("Map")%>%
     clearShapes()%>%
-   # removeShape(layerId = removepwsid)%>%
+    #removeShape(layerId = removepwsid)%>%
     clearControls()%>%
     addPolygons(data = Data,
                 layerId = ~pwsid,
                 label = ~htmlEscape(pwsid),
-                color = ~pal(colvar),
-                weight = 1.5,
-                fill = "grey",
-                opacity = .75)%>%
-    addLegend(pal = pal, values = colvar,  position = "bottomleft")
+                fillColor = ~pal(colvar),
+                weight = .75,
+                color = "grey")%>%
+    addLegend(pal = pal, values = colvar,  position = "bottomleft", title = as.character(input$VarOne))
+    }
+  }
 }
 
 hide_spinner()
 })
+
+################################# 
+# Observe for panel show/hides ##
+#################################
+
+observeEvent(input$Context, {
+  toggle("Map", anim = FALSE,animType = "slide")
+  toggle("Table", anim = FALSE,animType = "slide")
+ # toggle("StateNameTwo", anim = FALSE,animType = "slide")
+#  toggle("ColumnMouseover", anim = FALSE,animType = "slide")
+})
+
+
 ################
 #### Map #######
 ################
 ## TO DO 
 ## Add UpdateLeaflet for data_select
 output$Map <- renderLeaflet({
-  leaflet(options = leafletOptions(minZoom = 1, maxZoom = 10))%>%
+  leaflet(options = leafletOptions(minZoom = 1, maxZoom = 12))%>%
               addProviderTiles(providers$CartoDB.Positron, group = "Toner Lite")%>%
-              setView(-100.00, 31.0, zoom = 6)
+              setView(-95.58292, 31.94214, zoom = 7)
 })
+
 
 
 ################
@@ -253,22 +319,14 @@ output$SelectGeography <- renderUI({
               filter(east_tx_flag == "yes")%>%
               pull(county_served)%>%
               unique()
-  
- #SelectedCounties <- c("ANGELINA", "NACOGDOCHES","HOUSTON")
-  
+
 selectizeInput("Geography","Select a Geography", choices = c("All",Counties), selected = SelectedCounties, multiple = TRUE)
 })
 
 output$SelectCat <- renderUI({
   ## Theres probably a way to do this with a function but curently need to copy and paste catagorical filter columns
-  Choices <- list()
-  Choices$all <- c("All Types","")
-  Choices$owner_type_description <- unique(Controller$data$owner_type_description)
-  Choices$primary_source_code <- unique(Controller$data$primary_source_code)
-  Choices$pop_catagories <- unique(Controller$data$pop_catagories)
-  Choices$tier <- unique(Controller$data$tier)
   
-  selectizeInput("Catagory", "Select a Utility Type", choices = Choices, selected = Choices$all[1], multiple = TRUE)
+  selectizeInput("Catagory", "Select a Utility Type", choices = CatChoices, selected = CatChoices$all[1], multiple = TRUE)
 })
 
 output$SummaryStats <- renderUI({
@@ -303,7 +361,7 @@ output$VarOneHist <- renderPlotly({
   req(Controller$data_select)
   req(input$VarOne)
   
-plot_ly(x =  Controller$data_select %>% pull(!!input$VarOne), type = "histogram", source = "a", nbinsx = 30)%>% 
+plot_ly(x =  Controller$data_select %>% pull(!!input$VarOne), type = "histogram", source = "a", nbinsx = 50, marker = list(color = "#dd7c8a") )%>% 
   config(displayModeBar = FALSE) %>%
   event_register("plotly_selected")%>%
  # add_trace(x = density$x, y = density$y, type = "scatter", mode = "lines", fill = "tozeroy", yaxis = "y2", name = "Density") %>% 
@@ -323,7 +381,8 @@ output$VarTwoHist <- renderPlotly({
   req(Controller$data_select)
   req(input$VarTwo)
   
-  plot_ly(x =  Controller$data_select %>% pull(!!input$VarTwo), type = "histogram", source = "b", nbinsx = 30)%>% 
+
+  plot_ly(x =  Controller$data_select %>% pull(!!input$VarTwo), type = "histogram", source = "b", nbinsx = 50, marker = list(color = "#7ab3d1") )%>% 
     config(displayModeBar = FALSE) %>%
     event_register("plotly_selected")%>%
     # add_trace(x = density$x, y = density$y, type = "scatter", mode = "lines", fill = "tozeroy", yaxis = "y2", name = "Density") %>% 
@@ -332,10 +391,34 @@ output$VarTwoHist <- renderPlotly({
 
 
 
+
 ################
 #### Table #####
 ################
+output$Table <- renderUI({
+  req(Controller$data_select)
+  
+  TableData <- Controller$data_select %>%
+               data.frame()%>%
+               select(-c(geometry))
 
+  renderReactable({
+    reactable(TableData,
+              highlight = TRUE,
+              bordered = TRUE,
+              resizable = TRUE,
+              #wrap = FALSE,
+             # minRows = 20,
+              defaultPageSize = 30,
+            #  height = shinybrowser::get_height(),
+            #  defaultColDef = colDef(headerStyle = list(background = "#f7f7f8"))
+            )
+    
+  })
+  
+  
+  
+})
 ################
 #### Charts ####
 ################
