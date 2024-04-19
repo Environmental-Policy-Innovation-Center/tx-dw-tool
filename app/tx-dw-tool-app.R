@@ -142,8 +142,6 @@ observeEvent(ignoreInit = TRUE,
                   input$VarOne, 
                   input$VarTwo, 
                   input$Geography, input$Catagory, event_one(), event_two()), {
-                    
-currentpwsid <- unique(Controller$data_select$pwsid) 
  
 ## show spinner                                        
 show_spinner() 
@@ -259,13 +257,11 @@ else
   
   pal <- colorQuantile(
     palette = "Reds",
-   # palette = c("#bdc9e1","#74a9cf","#2b8cbe","#045a8d","#012169"),
     n = 5,
     domain = colvar)
   
   leafletProxy("Map")%>%
     clearShapes()%>%
-    #removeShape(layerId = removepwsid)%>%
     clearControls()%>%
     addPolygons(data = Data,
                 layerId = ~pwsid,
@@ -288,8 +284,6 @@ hide_spinner()
 observeEvent(input$Context, {
   toggle("Map", anim = FALSE,animType = "slide")
   toggle("Table", anim = FALSE,animType = "slide")
- # toggle("StateNameTwo", anim = FALSE,animType = "slide")
-#  toggle("ColumnMouseover", anim = FALSE,animType = "slide")
 })
 
 
