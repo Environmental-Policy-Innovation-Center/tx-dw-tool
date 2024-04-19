@@ -84,3 +84,67 @@ put_object(
   acl = "public-read"
 )
 ```
+
+## Adding TX regions: 
+```{r}
+# script for pulling TX regions: 
+file_loc <- "./data-prep/TX_regions"
+download.file("https://www.twdb.texas.gov/mapping/gisdata/doc/RWPA_Shapefile.zip", 
+              destfile = paste0(file_loc, ".zip"))
+unzip(zipfile = paste0(file_loc, ".zip"), exdir = file_loc) 
+file.remove(paste0(file_loc, ".zip"))
+
+# grabbing region boundaries 
+region_boundaries <- st_read(paste0(file_loc, "/TWDB_RWPAs_2014.shp")) %>%
+  janitor::clean_names() %>%
+  st_transform('+proj=longlat +datum=WGS84')
+
+# saving region boundaries to s3: 
+tmp <- tempfile()
+st_write(region_boundaries, dsn = paste0(tmp, ".geojson"))
+on.exit(unlink(tmp))
+put_object(
+  file = paste0(tmp, ".geojson"),
+  object = "/state-drinking-water/TX/clean/app/TX_regions.geojson",
+  bucket = "tech-team-data",
+  acl = "public-read"
+)
+
+# reading region boundaries from s3: 
+region_boundaries <- aws.s3::s3read_using(st_read, 
+                                          object = "s3://tech-team-data/state-drinking-water/TX/clean/app/TX_regions.geojson")
+
+# grabbing service areas for st_intersection: 
+sabs <- demo$census %>%
+  st_transform('+proj=longlat +datum=WGS84')
+
+# running an st_intersection: 
+sab_region <- st_intersection(sabs, region_boundaries)
+
+# tidying and reformatting data to a simple region vector: 
+sab_region_simple <- sab_region %>%
+  as.data.frame() %>%
+  select(-geometry) %>%
+  group_by(pwsid) %>%
+  reframe(regions = paste0(unique(label_2))) %>%
+  unnest(regions)
+
+sab_region_tidy <- aggregate(regions ~ pwsid, unique(sab_region_simple), 
+                             paste, collapse = ", ")
+
+# saving data frame containing pwsids and region intersections to s3 
+tmp <- tempfile()
+write.csv(sab_region_tidy, file = paste0(tmp, ".csv"), row.names = FALSE)
+on.exit(unlink(tmp))
+put_object(
+  file = paste0(tmp, ".csv"),
+  object = "/state-drinking-water/TX/clean/app/TX_pwsid_regions.csv",
+  bucket = "tech-team-data",
+  acl = "public-read"
+)
+
+# reading pwsid regions from s3: 
+pwsid_regions <- aws.s3::s3read_using(read.csv, 
+                                      object = "s3://tech-team-data/state-drinking-water/TX/clean/app/TX_pwsid_regions.csv")
+# there's one less pwsid because it's over the border in AK (Texarkana region)
+```
