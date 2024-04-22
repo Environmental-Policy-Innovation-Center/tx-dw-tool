@@ -23,22 +23,23 @@ library(reactable)
 library(shinyjs)
 library(shinycssloaders)
 library(purrr)
+library(shinyBS)
 
 ## TICKET LIST
 ## Fixes 
 ##    xPull down no data handling 
 ##    xNo data selected during histogram selection 
 ##    Map flashing on render
-##    Fix same variable clashing 
-##.   Make utility type filter cumulative
+##    xFix same variable clashing 
+##    xMake utility type filter cumulative
 ## Enhancements 
-##.   Popups 
-##.   Region filters
-##.   App ready variable names
-##.   variable type groupings for pulldowns 
-##.   Documentation workflow 
-##.   Table 
-##.   Report 
+##    Popups 
+##    xRegion filters
+##    App ready variable names
+##    variable type groupings for pulldowns 
+##    Documentation workflow 
+##    xTable 
+##    Report 
 
 
 
@@ -47,41 +48,60 @@ library(purrr)
 ### UI #### 
 ###########
 ui <- fluidPage(
-  
-  add_busy_spinner(spin = "fading-circle"),
-  # detect(),
-   #useWaitress(),
-   useShinyjs(),
   # tags$head(
-  #   tags$style(HTML(".leaflet-container { background: #FFFFFF;} 
-  #                   .sidebar form.well { background: transparent;border: 0px;} 
-  #                   .panel-primary>.panel-heading+.panel-collapse>.panel-body{border-right: 1px solid rgba(0, 0, 0, 0.05);}
-  #                   .shiny-notification {position:fixed;top: calc(15%);left: calc(15%); max-width: 300px}"))
+  #   tags$style(
+  #     HTML("
+  #       /* CSS to prevent text wrapping in checkbox options */
+  #       .checkbox-inline .form-check-label {
+  #         display: block !important;
+  #         white-space: nowrap;
+  #       }
+  #     ")
+  #   )
   # ),
   # 
+  tags$head(tags$style(type="text/css", "#Map.recalculating { opacity: 1.0; }")),
+  add_busy_spinner(spin = "fading-circle"),
+  useShinyjs(),
+  
   sidebarLayout(
-    div( id ="sidebar",
-         sidebarPanel(
-           style = "position: fixed; height: 100%; width: 100%; overflow-y: auto; margin-left: -30px;", div(style = "display:inline-block; float:right; margin-bottom: 20px"),
-           width = 4,
-           uiOutput("SelectGeography", style = "width: 100%"), 
-           uiOutput("SelectCat",style = "width: 100%"),
-           uiOutput("SummaryStats", style = "margin-bottom: 10px"),
-           uiOutput("VarOne", style = "width: 100%"), 
-           plotlyOutput("VarOneHist", width = "250px", height = "150px"),
-           uiOutput("VarTwo", style = "width: 100%"), 
-           plotlyOutput("VarTwoHist", width = "250px", height = "150px"),
-           actionButton("Context", "Table or Map",icon(name = "arrows-left-right", lib = "font-awesome"),style = "margin-bottom: 10px;"), 
-           
-         )),
-           mainPanel(
-             style = "margin-left: -15px;",
-             leafletOutput("Map", height = "100vh"),
-             hidden(uiOutput("Table", style = "margin-left: 5px; background-color: none;", width = "100px")),
-             width = 8),
-           
-           position = c("right"), fluid = TRUE),
+    div(
+      id ="sidebar",
+      sidebarPanel(
+        style = "position: fixed; height: 100%; width: 500px; overflow-y: auto; margin-left: -30px;", 
+        div(style = "display:inline-block; float:right; margin-bottom: 20px"),
+        width = 4,
+        uiOutput("SelectGeography", style = "width: 100%"), 
+        bsCollapse(
+          id = "CollapsePanel", 
+     #     open = c("Filter by Categories"), 
+          multiple = TRUE,
+          bsCollapsePanel(
+            "Filter by Categories",
+            uiOutput("SelectCat", style = "line-height: 20px; margin-top: -10px; margin-bottom: -10px;"),  
+            style = "primary"
+          )
+        ),
+        uiOutput("SummaryStats", style = "margin-bottom: 10px"),
+        uiOutput("VarOne", style = "width: 100%"), 
+        plotlyOutput("VarOneHist", width = "300px", height = "150px"),
+        uiOutput("VarTwo", style = "width: 100%"), 
+        plotlyOutput("VarTwoHist", width = "300px", height = "150px"),
+        actionButton("Context", "Table or Map",icon(name = "arrows-left-right", lib = "font-awesome"),style = "margin-bottom: 10px;"), 
+      )
+    ),
+    mainPanel(
+      style = "margin-left: -15px;",
+      leafletOutput("Map", height = "100vh"),
+      hidden(uiOutput("Table", style = "margin-left: 5px; background-color: none;", width = "100px")),
+      width = 8
+    ),
+    position = c("right"), 
+    fluid = TRUE
+  )
 )
+
+
 
 ################
 #### SERVER #### 
@@ -103,27 +123,29 @@ Controller <- reactiveValues()
 Controller$data <- tx_raw 
 
 Counties <- unique(tx_raw$county_served)
-   
+
+
 event_one <- reactive(event_data(event = "plotly_selected", source = "a", priority = "event"))
 event_two <- reactive(event_data(event = "plotly_selected", source = "b", priority = "event"))
 
-## Building catagorical filters here so they can be acessed in pull down and logic handler
+## Building catagorical filters here so they can be accessed in pull down and logic handler 
+## TO DO: Set these columns to by a part of the Controller - potentially as an s3 or store the app data as a list - with this as an additional dataframe
+## TO DO: Set this to the controller! 
+checkboxSelection <- reactiveValues()
+
 columns <- c("owner_type_description","primary_source_code","pop_catagories","tier")
+labels <- c("Owner Type", "Source Type", "Size", "Service Area Boundary Data Quality")
 
-CatChoices <- isolate(Controller$data) %>%
+## Generating unique list of regions
+pwsid_regions <- tx_raw %>%
   data.frame()%>%
-  select(all_of(columns))%>%
-  summarise_all(~ list(unique(.))) %>%
-  as.list()
+  select(regions)%>%
+  unique()
 
-## TO DO: delete this stupid loop - produced from the above code but can't find a way to delete the indexes without looping!
-for (i in 1:length(CatChoices)) {
-  CatChoices[[i]] <- CatChoices[[i]][[1]]
-}
+unique_regions <- unique(unlist(strsplit(pwsid_regions$regions, ",\\s*")))
 
-## adding an all catagory
-CatChoices$all <- c("All Types","")
-
+# Remove NA if present
+unique_regions <- unique_regions[!is.na(unique_regions)]
 
 ################
 ### Observes ###
@@ -135,18 +157,26 @@ CatChoices$all <- c("All Types","")
 ######################################
 ## Observe Event for Application Logic
 ######################################
+
+## TO DO: abstract the checkbox input names and pass as ine thing 
 observeEvent(ignoreInit = TRUE, 
              list(input$Bivariate, 
-                  # this isolate prevents rerendering loop 
+                  # this isolate prevents re rendering loop 
                   isolate(Controller$data_select), 
                   input$VarOne, 
                   input$VarTwo, 
-                  input$Geography, input$Catagory, event_one(), event_two()), {
+                  input$Geography, 
+                  input$Catagory, 
+                  event_one(), 
+                  event_two(),
+                  input$owner_type_description, input$primary_source_code, input$pop_catagories, input$tier), {
+                    
+
  
 ## show spinner                                        
 show_spinner() 
                     
-if(length(input$Geography) == 0 | length(input$Catagory) == 0 | input$VarOne == input$VarTwo)
+if(length(input$Geography) == 0 | input$VarOne == input$VarTwo)
 {
   showNotification(id = "notification", "Insufficent data selected or duplicate variables chosen, please change selection" ,type = "warning")
 }
@@ -158,7 +188,7 @@ if(!str_detect(paste(input$Geography, collapse = "|"),"All"))
 {
 ## selecting new geography data based on user input                
 Controller$data_select <- Controller$data  %>%
-                          filter(county_served %in% input$Geography)
+                          filter(county_served %in% input$Geography | regions %in% input$Geography)
 }
 else
 {
@@ -189,26 +219,30 @@ else
   event_two_min <- min(Controller$data_select %>% pull(!!input$VarTwo), na.rm = TRUE)
 }
 
-## selecting based on categorical filters (if its all types select all, if not select proper fields)
-if(!str_detect(paste(input$Catagory, collapse = "|"),"All Types"))
+  ## Filtering from plotly reactives 
+    Data <- Controller$data_select %>%
+      filter(!!as.symbol(input$VarOne) <= event_one_max)%>%
+      filter(!!as.symbol(input$VarOne) >= event_one_min)%>%
+      filter(!!as.symbol(input$VarTwo) <= event_two_max)%>%
+      filter(!!as.symbol(input$VarTwo) >= event_two_min)
+
+#Handles when the bar is collapsed by default
+if(!is.null(input$owner_type_description))
 {
-  #print(input$Catagory)
-  Data <- Controller$data_select %>%
-    filter(!!as.symbol(input$VarOne) <= event_one_max)%>%
-    filter(!!as.symbol(input$VarOne) >= event_one_min)%>%
-    filter(!!as.symbol(input$VarTwo) <= event_two_max)%>%
-    filter(!!as.symbol(input$VarTwo) >= event_two_min)%>%
-    filter(if_any(where(is.character), ~str_detect(., paste(input$Catagory, collapse = "|"))))
-}
-else
-{
-Data <- Controller$data_select %>%
-  filter(!!as.symbol(input$VarOne) <= event_one_max)%>%
-  filter(!!as.symbol(input$VarOne) >= event_one_min)%>%
-  filter(!!as.symbol(input$VarTwo) <= event_two_max)%>%
-  filter(!!as.symbol(input$VarTwo) >= event_two_min) 
+    ## Filtering data from type select check boxes 
+    for (col in columns) {
+      checkboxSelection[[col]] <- input[[col]]
+    }
+    
+    for (col in columns) {
+      selectedChoices <- checkboxSelection[[col]]
+      if (length(selectedChoices) > 0) {
+        Data <- Data[Data[[col]] %in% selectedChoices, ]
+      }
+    }
 }
 
+    
 ## insufficent data notification 
 if(nrow(Data) < 3)
 {
@@ -254,12 +288,12 @@ else
 {
   # subsetting to selected variable 
   colvar <-  Data %>% pull(!!input$VarOne)
-  
-  pal <- colorQuantile(
+
+  pal <- colorNumeric(
     palette = "Reds",
-    n = 5,
+#    n = 5,
     domain = colvar)
-  
+
   leafletProxy("Map")%>%
     clearShapes()%>%
     clearControls()%>%
@@ -270,6 +304,7 @@ else
                 weight = .75,
                 color = "grey")%>%
     addLegend(pal = pal, values = colvar,  position = "bottomleft", title = as.character(input$VarOne))
+  
     }
   }
 }
@@ -309,22 +344,39 @@ output$Map <- renderLeaflet({
 ## Add regions (.rmd)
 ## Add missing counties (.rmd)
 output$SelectGeography <- renderUI({
-  SelectedCounties <- Controller$data %>%
-              filter(east_tx_flag == "yes")%>%
-              pull(county_served)%>%
-              unique()
+  GeoChoices <- list()
+  
+  GeoChoices$Regions <- sort(unique_regions)
+  GeoChoices$Counties <- sort(Counties)
+  
+  
 
-selectizeInput("Geography","Select a Geography", choices = c("All",Counties), selected = SelectedCounties, multiple = TRUE)
+selectizeInput("Geography","Select a Geography", choices = GeoChoices, selected = "I - East Texas", multiple = TRUE)
 })
+
+
+# quick function for generating checkbox inputs for catagorical filters dynamically
+generateCheckboxGroupInput <- function(inputId, label, choices, selected) {
+  checkboxGroupInput(inputId, label, choices = choices, selected = selected)
+}
 
 output$SelectCat <- renderUI({
-  ## Theres probably a way to do this with a function but curently need to copy and paste catagorical filter columns
+  inputIds <- columns
   
-  selectizeInput("Catagory", "Select a Utility Type", choices = CatChoices, selected = CatChoices$all[1], multiple = TRUE)
+  checkbox_inputs <- mapply(function(col, lab, inputId) {
+    choices <- unique(Controller$data[[col]])
+    selected <- unique(Controller$data[[col]])
+    div(
+      class = "col-md-6",
+      generateCheckboxGroupInput(inputId, lab, choices, selected)
+    )
+  }, columns, labels, inputIds, SIMPLIFY = FALSE)
+  
+  fluidRow(do.call(tagList, checkbox_inputs))
 })
 
+
 output$SummaryStats <- renderUI({
-  
   ## Number of selected utilities
   ## Total population served
   ## Median Household Income
@@ -333,7 +385,6 @@ output$SummaryStats <- renderUI({
   UtilityCount <- paste("<b>", "Utility Count:", scales::number(length(unique(Controller$data_select$pwsid)), big.mark = ","),"</b>", "<br>")
   Population <- paste("<b>", "Utility Users:", scales::number(sum(Controller$data_select$estimate_total_pop), big.mark = ","),"</b>", "<br>")
   MHI <- paste("<b> ", "Avg. Median Household Income:", dollar(mean(Controller$data_select$estimate_mhi, na.rm = TRUE)),"</b>", "<br>")
- # POC <- paste("<b>", "Percent of Color:", scales::percent(mean(Controller$data_select$estimate_poc_alone_per, na.rm = TRUE), accuracy = 2, suffix = "%") ,"</b>", "<br>")
   POC <- paste("<b>", "Percent of Color:", scales::percent(mean(Controller$data_select$estimate_poc_alone_per, na.rm = TRUE) / 100) ,"</b>", "<br>")
   
   tagList(
@@ -355,11 +406,19 @@ output$VarOneHist <- renderPlotly({
   req(Controller$data_select)
   req(input$VarOne)
   
+  m <- list(
+    l = 5,
+    r = 5,
+    b = 5,
+    t = 5,
+    pad = 5
+  )
+  
 plot_ly(x =  Controller$data_select %>% pull(!!input$VarOne), type = "histogram", source = "a", nbinsx = 50, marker = list(color = "#dd7c8a") )%>% 
   config(displayModeBar = FALSE) %>%
   event_register("plotly_selected")%>%
  # add_trace(x = density$x, y = density$y, type = "scatter", mode = "lines", fill = "tozeroy", yaxis = "y2", name = "Density") %>% 
-  layout( dragmode = "select")
+  layout( dragmode = "select", margin = m)
 })
 
 ## Variable Two Select
@@ -374,17 +433,19 @@ output$VarTwo <- renderUI({
 output$VarTwoHist <- renderPlotly({
   req(Controller$data_select)
   req(input$VarTwo)
+  m <- list(
+    l = 5,
+    r = 5,
+    b = 5,
+    t = 5,
+    pad = 5
+  )
   
-
   plot_ly(x =  Controller$data_select %>% pull(!!input$VarTwo), type = "histogram", source = "b", nbinsx = 50, marker = list(color = "#7ab3d1") )%>% 
     config(displayModeBar = FALSE) %>%
     event_register("plotly_selected")%>%
-    # add_trace(x = density$x, y = density$y, type = "scatter", mode = "lines", fill = "tozeroy", yaxis = "y2", name = "Density") %>% 
-    layout(dragmode = "select")
+    layout(dragmode = "select",  margin = m)
 })
-
-
-
 
 ################
 #### Table #####
@@ -401,11 +462,7 @@ output$Table <- renderUI({
               highlight = TRUE,
               bordered = TRUE,
               resizable = TRUE,
-              #wrap = FALSE,
-             # minRows = 20,
               defaultPageSize = 30,
-            #  height = shinybrowser::get_height(),
-            #  defaultColDef = colDef(headerStyle = list(background = "#f7f7f8"))
             )
     
   })
