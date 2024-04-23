@@ -1,0 +1,38 @@
+---
+title: "Texas Drinking Water Application - Exported Report"
+date: "`r format(Sys.time(), '%d %B, %Y')`"
+output: pdf_document
+params:
+  dataset: tx_raw
+---
+
+```{r setup, include=FALSE} 
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+```
+
+```{r, echo = FALSE}
+library(knitr)
+library(tidyverse)
+library(leaflet)
+library(maps)
+data <- params$dataset
+tx_basemap <- map_data("county") %>%
+  filter(region == "texas")
+```
+
+Report for: ``r length(unique(data$pwsid))`` water utility service area boundary(ies) located in ``r unique(data$regions)`` \
+
+Map of utilities selected: \
+```{r, echo = FALSE}
+# finding zoom boundaries: 
+zoom <- st_bbox(data)
+ggplot(data) + 
+  geom_polygon(data = tx_basemap, 
+               aes(x = long, y = lat, group = group),
+               color = "grey60", fill = "grey") +   
+  geom_sf(color = "darkred") + 
+  coord_sf(xlim = c(as.numeric(zoom[1]), as.numeric(zoom[3])), 
+           ylim =  c(as.numeric(zoom[2]), as.numeric(zoom[4]))) + 
+  theme_minimal() + 
+  labs(x = "Longitude", y = "Latitude")
+```

@@ -25,6 +25,9 @@ library(shinycssloaders)
 library(purrr)
 library(shinyBS)
 library(rlang)
+## ET added 
+library(reactablefmtr)
+library(googlesheets4)
 
 ## TICKET LIST
 ## Fixes 
@@ -87,13 +90,30 @@ ui <- fluidPage(
         plotlyOutput("VarOneHist", width = "300px", height = "150px"),
         uiOutput("VarTwo", style = "width: 100%"), 
         plotlyOutput("VarTwoHist", width = "300px", height = "150px"),
-        actionButton("Context", "Table or Map",icon(name = "arrows-left-right", lib = "font-awesome"),style = "margin-bottom: 10px;"), 
+        actionButton("Context", "Table or Map",icon(name = "arrows-left-right", lib = "font-awesome"),
+                     ## ET added margin-top v 
+                     style = "margin-bottom: 10px; ; margin-top: 10px;"), 
+     ### ET Added V
+     downloadButton("Report", "Generate report",
+                    icon = icon("file-arrow-down", lib = "font-awesome"),
+                    style = "margin-bottom: 10px; margin-left: 10px; margin-top: 10px;"),
+     radioButtons("downloadType", "Download Type", 
+                  choices = c("CSV" = ".csv",
+                              "GEOJSON" = ".geojson"),
+                  inline = TRUE),
+     downloadButton("downloadData", "Download data"),
+     ### ET Added ^
       )
     ),
     mainPanel(
       style = "margin-left: -15px;",
       leafletOutput("Map", height = "100vh"),
-      hidden(uiOutput("Table", style = "margin-left: 5px; background-color: none;", width = "100px")),
+      hidden(
+        ### ET Added V
+        uiOutput("TableText", 
+                 style = "font-size: 15px; margin-left: 5px; position:relative; z-index: 500; font-style: italic; margin-top: 5px;"),
+        ### ET Added ^
+        uiOutput("Table", style = "margin-left: 5px; background-color: none;", width = "100px")),
       width = 8
     ),
     position = c("right"), 
@@ -114,6 +134,11 @@ server <- function(input, output) {
 tx_raw <- aws.s3::s3read_using(st_read, 
                          object = "state-drinking-water/TX/clean/app/app_test_data_simplified.geojson",
                          bucket = "tech-team-data")
+### ET Added V
+# gs4_deauth()
+# URL <- "https://docs.google.com/spreadsheets/d/1bzNPxhL-l6DeGElhG1c70Of8DGAQasMDUuX3rPHVe2A/edit#gid=0"
+# var_names <- read_sheet(URL, sheet = "var_names")
+### ET Added ^
 
 ################
 ### Variables ##
@@ -333,6 +358,9 @@ hide_spinner()
 observeEvent(input$Context, {
   toggle("Map", anim = FALSE,animType = "slide")
   toggle("Table", anim = FALSE,animType = "slide")
+  ## ET V
+  toggle("TableText", anim = FALSE,animType = "slide")
+  ## ET ^
 })
 
 
@@ -464,19 +492,160 @@ output$VarTwoHist <- renderPlotly({
 ################
 #### Table #####
 ################
+## ET ADDED v##
+output$TableText <- renderText({
+  paste("Click a column to sort and slide a column to expand")
+})
+## ET ADDED ^##
+
 output$Table <- renderUI({
   req(Controller$data_select)
   
   TableData <- Controller$data_select %>%
                data.frame()%>%
-               select(-c(geometry))
-
+               select(-c(geometry)) %>%
+  ####### ET  v #######
+  mutate_if(is.numeric, round, digits = 2) %>%
+    select(-c("tier", "east_tx_flag"))
+  ####### ET  ^ #######
+  
   renderReactable({
+    ####### ET  v #######
+    
+    # mini table column definitions: 
+    # mini_table_coldefs <- list(
+    #   reactable::colDef(name = "")
+    # )
+    # mini_table_coldefs <- rep(mini_table_coldefs, length(colnames(TableData)))
+    # names(mini_table_coldefs) <- colnames(TableData)
+    # violation cell styling: 
+    style_viols <- data_bars(
+      data = TableData,
+      round_edges = TRUE,
+      fill_color = viridis::inferno(40),
+      fill_opacity = 0.8, 
+      text_position = "outside-base"
+    )
+    
+    # percent cell styling: 
+    style_pct <- data_bars(
+      data = TableData,
+      round_edges = TRUE,
+      viridis::inferno(40),
+      fill_opacity = 0.8, 
+      max_value = 100,
+      text_position = "outside-base"
+    )
+    
+    # count cell styling: 
+    style_count <- color_tiles(
+      TableData,
+      colors = viridis::mako(40),
+      number_fmt = scales::comma,
+      opacity = 0.5
+    )
+    ####### ET  ^ #######
+    
     reactable(TableData,
+              
+              # ####### ET  v #######
+              # don't know if this is needed?? would love to provide 
+              # benchmakrs for each stat 
+              # details = function(index) {
+              #   data_cat <- TableData[index, ]
+              #   htmltools::div(style = "margin-left: 6rem",
+              #                  reactable(data_cat, outlined = TRUE, 
+              #                            columns = mini_table_coldefs)
+              #   )},
+              columns = list(
+                # utility characteristics: 
+                pwsid = colDef(aggregate = "unique", 
+                               name = "ID"),
+                # east_tx_flag = colDef(aggregate = "unique"),
+                county_served = colDef(aggregate = "unique", 
+                                       name = "County"),
+                # tier = colDef(aggregate = "unique"),
+                regions = colDef(aggregate = "unique", 
+                                 name = "Region"),
+                primary_source_code = colDef(aggregate = "unique", 
+                                             name = "Source"),
+                owner_type_description = colDef(aggregate = "unique", 
+                                                name = "Owner"),
+                pop_catagories = colDef(aggregate = "unique", 
+                                        name = "Pop Cat"),
+                pop_density = colDef(name = "Pop Density", 
+                                     cell = style_count),
+                area_miles = colDef(name = "Area (mi)",
+                                    cell = style_count),
+                # socioeconomic: 
+                estimate_mhi = colDef(name = "MHI ($)",
+                                      cell = color_tiles(
+                                        TableData,
+                                        colors = viridis::mako(40),
+                                        number_fmt = scales::dollar,
+                                        opacity = 0.5
+                                      )),
+                estimate_total_pop = colDef(name = "Population",
+                                            cell = style_count),
+                estimate_hisp_alone_per = colDef(name = "% Latino/a",
+                                                 cell = style_pct),
+                estimate_laborforce_unemployed_per = colDef(name = "% Unemployment", 
+                                                            cell = style_pct),
+                estimate_hh_below_pov_per = colDef(name = "% Poverty",
+                                                   cell = style_pct),
+                estimate_poc_alone_per = colDef(name = "%POC", 
+                                                cell = style_pct),
+                # violations:
+                paperwork_violations_10yr = colDef(name = "Non-Health, 10yr",
+                                                   cell = style_viols),
+                healthbased_violations_10yr = colDef(name = "Health, 10yr",
+                                                     cell = style_viols),
+                total_violations_10yr = colDef(name = "Total, 10yr",
+                                               cell = style_viols),
+                paperwork_violations_5yr = colDef(name = "Non-Health, 5yr",
+                                                  cell = style_viols),
+                healthbased_violations_5yr = colDef(name = "Health, 5yr",
+                                                    cell = style_viols),
+                total_violations_5yr = colDef(name = "Total, 5yr",
+                                              cell = style_viols)
+              ),
+              # defining column groups: 
+              columnGroups = list(
+                colGroup(name = "Utility", columns = c("pwsid", 
+                                                       # "east_tx_flag",  
+                                                       "county_served",  
+                                                       # "tier", 
+                                                       "regions",
+                                                       "primary_source_code", 
+                                                       "owner_type_description", "pop_catagories",
+                                                       "pop_density", "area_miles")),
+                colGroup(name = "Socioeconomic", columns = c("estimate_mhi", "estimate_total_pop", 
+                                                             "estimate_hisp_alone_per", "estimate_laborforce_unemployed_per", 
+                                                             "estimate_hh_below_pov_per", "estimate_poc_alone_per")), 
+                colGroup(name = "Violations", columns = c("healthbased_violations_5yr",
+                                                          "healthbased_violations_10yr", 
+                                                          "paperwork_violations_5yr",
+                                                          "paperwork_violations_10yr", 
+                                                          "total_violations_5yr", 
+                                                          "total_violations_10yr"))
+              ),
               highlight = TRUE,
               bordered = TRUE,
               resizable = TRUE,
-              defaultPageSize = 30,
+              ###### ET v#######
+              showSortable = TRUE,
+              searchable = TRUE,
+              # adopted from this stock overflow question: https://stackoverflow.com/questions/74222616/change-search-bar-text-in-reactable-table-in-r
+              language = reactableLang(
+                searchPlaceholder = "Search the table",
+                noData = "No entries found",
+                pageInfo = "{rowStart}\u2013{rowEnd} of {rows} entries",
+                pagePrevious = "\u276e",
+                pageNext = "\u276f",
+                pagePreviousLabel = "Previous page",
+                pageNextLabel = "Next page"),
+              ###### ET ^#######
+              defaultPageSize = 15,
             )
     
   })
@@ -491,7 +660,46 @@ output$Table <- renderUI({
 ################
 #### Report ####
 ################
-  
+### ET ADDED V ####
+
+# code for report adopted from: https://shiny.posit.co/r/articles/build/generating-reports/
+output$Report <- downloadHandler(
+  filename = "report.pdf",
+  content = function(file) {
+    # Copy the report file to a temporary directory before processing it, in
+    # case we don't have write permissions to the current working dir (which
+    # can happen when deployed).
+    tempReport <- file.path(tempdir(), "tx-report.Rmd")
+    # TODO: we need to figure out where this RMD should live 
+    file.copy("tx-report.Rmd", tempReport, overwrite = TRUE)
+    
+    # Set up parameters to pass to Rmd document
+    params <- list(dataset = Controller$data_select)
+    
+    # Knit the document, passing in the `params` list, and eval it in a
+    # child of the global environment (this isolates the code in the document
+    # from the code in this app).
+    rmarkdown::render(tempReport, output_file = file,
+                      params = params,
+                      envir = new.env(parent = globalenv())
+    )})
+
+# download handler: 
+output$downloadData <- downloadHandler(
+  filename = function() {
+    paste0("data", input$downloadType)
+  },
+  content = function(file) {
+    if(input$downloadType == ".csv") {
+      csv_data <- Controller$data_select %>% 
+        as.data.frame() %>%
+        select(-"geometry")
+      write.csv(csv_data, 
+                file, row.names = FALSE)
+    } else if(input$downloadType == ".geojson") {
+      st_write(Controller$data_select, file)
+    }
+  })  
 }
 
 
