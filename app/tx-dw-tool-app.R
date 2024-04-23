@@ -314,7 +314,7 @@ else
                 layerId = ~pwsid,
                 label = ~lapply(label_text, htmltools::HTML),
                 fillColor = ~pal(colvar),
-                fillOpacity = .8,
+                fillOpacity = .9,
                 weight = .75,
                 color = "grey")%>%
     addLegend(pal = pal, values = colvar,  position = "bottomleft", title = as.character(input$VarOne))
