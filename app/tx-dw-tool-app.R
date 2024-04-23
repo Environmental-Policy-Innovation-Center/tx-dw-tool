@@ -24,6 +24,7 @@ library(shinyjs)
 library(shinycssloaders)
 library(purrr)
 library(shinyBS)
+library(rlang)
 
 ## TICKET LIST
 ## Fixes 
@@ -60,7 +61,6 @@ ui <- fluidPage(
   #   )
   # ),
   # 
-  tags$head(tags$style(type="text/css", "#Map.recalculating { opacity: 1.0; }")),
   add_busy_spinner(spin = "fading-circle"),
   useShinyjs(),
   
@@ -257,6 +257,21 @@ isolate(Controller$data_select <- Data)
 # remove pwsids in current view that are not in the new view
 # removepwsid <- currentpwsid[!currentpwsid %in% Data$pwsid]
 # print(removepwsid)
+  
+  # label_text <- paste(
+  #   "<b>PWSID: </b> {Data$pwsid} <br/>",
+  #   "<b>Longitude: </b> {Data %>% pull(!!input$VarOne)} <br/>",
+  #   "<b>Latitude: </b> {Data %>% pull(!!input$VarTwo)}<br/>") %>%
+  #   lapply(htmltools::HTML)
+  
+  Data <- Data %>%
+          mutate(label_text = paste0(
+                              "<b> Utility ID: </b> ", pwsid, " <br>",
+                              "<b> Population Served: </b> ", round(estimate_total_pop,0), " <br>",
+                              "<b>", !!input$VarOne, ": </b> ", round(!!sym(input$VarOne),2), " <br>",
+                              "<b>", !!input$VarTwo, ": </b> ", round(!!sym(input$VarTwo),2), " <br>"))
+  
+
 
 ## If Bivariate is chosen - map color scale is different
 ## TO DO: can likely make this a lot shorter with passing the first leaflet changes to a var
@@ -264,16 +279,10 @@ if(input$Bivariate == TRUE)
 {
   leafletProxy("Map")%>%
     clearShapes()%>%
-   # removeShape(layerId = removepwsid)%>%
     clearControls()%>%
-    addPolygons(data = Data,
-                layerId = ~pwsid,
-                label = ~htmlEscape(pwsid),
-                weight = 1.5,
-               # fill = "grey",
-                opacity = .5)%>%
     bivariatechoropleths::addBivariateChoropleth(
       map_data = Data,
+      layerId = ~pwsid,
       var1_name = input$VarTwo,
       var2_name = input$VarOne,
       ntiles= 3,
@@ -281,8 +290,13 @@ if(input$Bivariate == TRUE)
       var2_label = input$VarOne,
       weight = 1,
       fillOpacity = 0.7,
-      color = "black", 
-      paletteFunction = pals::tolochko.redblue)
+      color = "black",
+      paletteFunction = pals::tolochko.redblue)%>%
+     ## Ok we have to add the polygons ontop of the bivariate polygons for labels to work properly but eee it actually works great! 
+      addPolygons(data = Data,
+              label = ~lapply(label_text, htmltools::HTML),
+                fillOpacity = 0,
+                opacity = 0)
 }
 else
 {
@@ -290,8 +304,7 @@ else
   colvar <-  Data %>% pull(!!input$VarOne)
 
   pal <- colorNumeric(
-    palette = "Reds",
-#    n = 5,
+    palette = c("#f5f5f5", "#dd7c8a", "#cc0124"),
     domain = colvar)
 
   leafletProxy("Map")%>%
@@ -299,8 +312,9 @@ else
     clearControls()%>%
     addPolygons(data = Data,
                 layerId = ~pwsid,
-                label = ~htmlEscape(pwsid),
+                label = ~lapply(label_text, htmltools::HTML),
                 fillColor = ~pal(colvar),
+                fillOpacity = .8,
                 weight = .75,
                 color = "grey")%>%
     addLegend(pal = pal, values = colvar,  position = "bottomleft", title = as.character(input$VarOne))
