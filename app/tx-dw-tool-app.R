@@ -30,6 +30,7 @@ library(reactablefmtr)
 library(googlesheets4)
 library(reactable.extras)
 
+
 ## TICKET LIST
 ## Fixes 
 ##    xPull down no data handling 
@@ -46,16 +47,13 @@ library(reactable.extras)
 ##    xTable 
 ##    Report 
 
-
-
-
 ###########
 ### UI #### 
 ###########
 ui <- fluidPage(
 
   reactable_extras_dependency(),
-  add_busy_spinner(spin = "fading-circle"),
+  add_busy_spinner(spin = "fading-circle", position = "top-left"),
   useShinyjs(),
   
   sidebarLayout(
@@ -182,159 +180,107 @@ observeEvent(ignoreInit = TRUE,
                   event_one(), 
                   event_two(),
                   input$owner_type_description, input$primary_source_code, input$pop_catagories, input$tier), {
-                    
-
- 
 ## show spinner                                        
 show_spinner() 
-                    
-if(length(input$Geography) == 0 | input$VarOne == input$VarTwo)
-{
-  showNotification(id = "notification", "Insufficent data selected or duplicate variables chosen, please change selection" ,type = "warning")
-}
-else
-{
-                    
 
-if(!str_detect(paste(input$Geography, collapse = "|"),"All"))
-{
-## selecting new geography data based on user input                
-Controller$data_select <- Controller$data  %>%
-                          filter(county_served %in% input$Geography | regions %in% input$Geography)
-}
-else
-{
-  Controller$data_select <- Controller$data
-}
- 
-## TO DO: Sort out logic here
-## Clean this out
-if(!is.null(event_one()))
-{
-  event_one_max <- max(event_one()$x, na.rm = TRUE)
-  event_one_min <- min(event_one()$x, na.rm = TRUE)
-}
-else
-{
-  event_one_max <- max(Controller$data_select %>% pull(!!input$VarOne), na.rm = TRUE)
-  event_one_min <- min(Controller$data_select %>% pull(!!input$VarOne), na.rm = TRUE)
-}
-## event two handling
-if(!is.null(event_two()))
-{
-  event_two_max <- max(event_two()$x, na.rm = TRUE)
-  event_two_min <- min(event_two()$x, na.rm = TRUE)
-}
-else
-{
-  event_two_max <- max(Controller$data_select %>% pull(!!input$VarTwo), na.rm = TRUE)
-  event_two_min <- min(Controller$data_select %>% pull(!!input$VarTwo), na.rm = TRUE)
-}
+if(length(input$Geography) == 0 | input$VarOne == input$VarTwo) {
+  showNotification(id = "notification", "Insufficient data selected or duplicate variables chosen, please change selection", type = "warning")
+} else {
+  ## Filter data based on selected geography
+  if(!str_detect(paste(input$Geography, collapse = "|"), "All")) {
+    Data <- Controller$data %>%
+      filter(county_served %in% input$Geography | regions %in% input$Geography)
+  } else {
+    Data <- Controller$data
+  }
 
-  ## Filtering from plotly reactives 
-    Data <- Controller$data_select %>%
-      filter(!!as.symbol(input$VarOne) <= event_one_max)%>%
-      filter(!!as.symbol(input$VarOne) >= event_one_min)%>%
-      filter(!!as.symbol(input$VarTwo) <= event_two_max)%>%
-      filter(!!as.symbol(input$VarTwo) >= event_two_min)
+  ## Calculate event min and max values
+  event_one_max <- if (!is.null(event_one())) max(event_one()$x, na.rm = TRUE) else max(Data %>% pull(!!input$VarOne), na.rm = TRUE)
+  event_one_min <- if (!is.null(event_one())) min(event_one()$x, na.rm = TRUE) else min(Data %>% pull(!!input$VarOne), na.rm = TRUE)
+  event_two_max <- if (!is.null(event_two())) max(event_two()$x, na.rm = TRUE) else max(Data %>% pull(!!input$VarTwo), na.rm = TRUE)
+  event_two_min <- if (!is.null(event_two())) min(event_two()$x, na.rm = TRUE) else min(Data %>% pull(!!input$VarTwo), na.rm = TRUE)
+  ## Filter data based on events
 
-#Handles when the bar is collapsed by default
-if(!is.null(input$owner_type_description))
-{
-    ## Filtering data from type select check boxes 
+
+  Data <- Data %>%
+    filter(!!as.symbol(input$VarOne) <= event_one_max &
+             !!as.symbol(input$VarOne) >= event_one_min &
+             !!as.symbol(input$VarTwo) <= event_two_max &
+             !!as.symbol(input$VarTwo) >= event_two_min)
+
+  ## Filter data based on type selection
+  if (!is.null(input$owner_type_description)) {
     for (col in columns) {
       checkboxSelection[[col]] <- input[[col]]
     }
-    
     for (col in columns) {
       selectedChoices <- checkboxSelection[[col]]
       if (length(selectedChoices) > 0) {
         Data <- Data[Data[[col]] %in% selectedChoices, ]
       }
     }
-}
+  }
 
+  if(nrow(Data) < 3) {
+    showNotification(id = "notification", "Insufficient data, please select more utilities", type = "warning")
+  } else {
     
-## insufficent data notification 
-if(nrow(Data) < 3)
-{
-  showNotification(id = "notification", "Insufficent data, please select more utilities" ,type = "warning")
-}
-else
-{
+    ## Update Controller$data_select
+    isolate(Controller$data_select <- Data)
 
-# sets the data back to Controller$data_selected for UI outputs and prevents rerendering within the massive observeEvent... 
-isolate(Controller$data_select <- Data)
-  
-# remove pwsids in current view that are not in the new view
-# removepwsid <- currentpwsid[!currentpwsid %in% Data$pwsid]
-# print(removepwsid)
-  
-  # label_text <- paste(
-  #   "<b>PWSID: </b> {Data$pwsid} <br/>",
-  #   "<b>Longitude: </b> {Data %>% pull(!!input$VarOne)} <br/>",
-  #   "<b>Latitude: </b> {Data %>% pull(!!input$VarTwo)}<br/>") %>%
-  #   lapply(htmltools::HTML)
-  
-  Data <- Data %>%
-          mutate(label_text = paste0(
-                              "<b> Utility ID: </b> ", pwsid, " <br>",
-                              "<b> Population Served: </b> ", round(estimate_total_pop,0), " <br>",
-                              "<b>", !!input$VarOne, ": </b> ", round(!!sym(input$VarOne),2), " <br>",
-                              "<b>", !!input$VarTwo, ": </b> ", round(!!sym(input$VarTwo),2), " <br>"))
-  
-
-
-## If Bivariate is chosen - map color scale is different
-## TO DO: can likely make this a lot shorter with passing the first leaflet changes to a var
-if(input$Bivariate == TRUE)
-{
-  leafletProxy("Map")%>%
-    clearShapes()%>%
-    clearControls()%>%
-    bivariatechoropleths::addBivariateChoropleth(
-      map_data = Data,
-      layerId = ~pwsid,
-      var1_name = input$VarTwo,
-      var2_name = input$VarOne,
-      ntiles= 3,
-      var1_label = input$VarTwo,
-      var2_label = input$VarOne,
-      weight = 1,
-      fillOpacity = 0.7,
-      color = "black",
-      paletteFunction = pals::tolochko.redblue)%>%
-     ## Ok we have to add the polygons ontop of the bivariate polygons for labels to work properly but eee it actually works great! 
-      addPolygons(data = Data,
-              label = ~lapply(label_text, htmltools::HTML),
-                fillOpacity = 0,
-                opacity = 0)
-}
-else
-{
-  # subsetting to selected variable 
-  colvar <-  Data %>% pull(!!input$VarOne)
-
-  pal <- colorNumeric(
-    palette = c("#f5f5f5", "#dd7c8a", "#cc0124"),
-    domain = colvar)
-
-  leafletProxy("Map")%>%
-    clearShapes()%>%
-    clearControls()%>%
-    addPolygons(data = Data,
-                layerId = ~pwsid,
-                label = ~lapply(label_text, htmltools::HTML),
-                fillColor = ~pal(colvar),
-                fillOpacity = .9,
-                weight = .75,
-                color = "grey")%>%
-    addLegend(pal = pal, values = colvar,  position = "bottomleft", title = as.character(input$VarOne))
-  
+    # Calculate label text outside the loop
+    label_text <- paste0(
+      "<b> Utility ID: </b> ", Data$pwsid, " <br>",
+      "<b> Population Served: </b> ", round(Data$estimate_total_pop, 0), " <br>",
+      "<b>", input$VarOne, ": </b> ", round(Data[[input$VarOne]], 2), " <br>",
+      "<b>", input$VarTwo, ": </b> ", round(Data[[input$VarTwo]], 2), " <br>"
+    )
+    Data$label_text <- lapply(label_text, htmltools::HTML)
+    
+    ## setting up leafletproxy 
+    leaflet_proxy <- leafletProxy("Map") %>%
+      clearShapes() %>%
+      clearControls()
+    
+    if (input$Bivariate == TRUE) {
+      ## Bivariate plot
+      leaflet_proxy %>%
+        bivariatechoropleths::addBivariateChoropleth(
+          map_data = Data,
+          var1_name = input$VarTwo,
+          var2_name = input$VarOne,
+          ntiles = 3,
+          var1_label = input$VarTwo,
+          var2_label = input$VarOne,
+          weight = 1,
+          fillOpacity = 0.7,
+          color = "black",
+          paletteFunction = pals::tolochko.redblue
+        ) %>%
+        addPolygons(data = Data,
+                    label = ~label_text,
+                    fillOpacity = 0,
+                    opacity = 0)
+    } else {
+      ## Univariate plot
+      colvar <- Data[[input$VarOne]]
+      pal <- colorNumeric(
+        palette = c("#f5f5f5", "#dd7c8a", "#cc0124"),
+        domain = colvar
+      )
+      leaflet_proxy %>%
+        addPolygons(data = Data,
+                    layerId = ~pwsid,
+                    label = ~label_text,
+                    fillColor = ~pal(colvar),
+                    fillOpacity = .9,
+                    weight = .75,
+                    color = "grey") %>%
+        addLegend(pal = pal, values = colvar, position = "bottomleft", title = as.character(input$VarOne))
     }
   }
 }
-
+Sys.sleep(.05) 
 hide_spinner()
 })
 
@@ -374,9 +320,7 @@ output$SelectGeography <- renderUI({
   GeoChoices$Regions <- sort(unique_regions)
   GeoChoices$Counties <- sort(Counties)
   
-  
-
-selectizeInput("Geography","Select a Geography", choices = GeoChoices, selected = "I - East Texas", multiple = TRUE)
+selectizeInput("Geography","Select a Geography", choices = GeoChoices, selected = "I - East Texas", multiple = TRUE, options = list(maxItems = 5))
 })
 
 
@@ -423,7 +367,7 @@ output$SummaryStats <- renderUI({
 
 ## Variable One Select
 output$VarOne <- renderUI({
-selectInput("VarOne", "Select a variable to map", choices = Controller$data %>% select(estimate_mhi:total_violations_5yr) %>% colnames())
+selectInput("VarOne", "Select a variable to map", choices = tx_raw %>% select(estimate_mhi:total_violations_5yr) %>% colnames())
 })
 
 # Variable One Hist
@@ -449,7 +393,7 @@ plot_ly(x =  Controller$data_select %>% pull(!!input$VarOne), type = "histogram"
 ## Variable Two Select
 output$VarTwo <- renderUI({
   tagList(
-  selectInput("VarTwo", "Select a second variable", choices = Controller$data %>% select(pop_density:total_violations_5yr) %>% colnames() ),
+  selectInput("VarTwo", "Select a second variable", choices = tx_raw %>% select(pop_density:total_violations_5yr) %>% colnames() ),
   checkboxInput("Bivariate", "Bivariate",value = FALSE)
   )
 })
@@ -517,7 +461,7 @@ observeEvent(Controller$data_select,ignoreInit = TRUE,{
     opacity = 0.5
   )
   
-reactable_extras_server(data = TableData , id = "table", total_pages = round(nrow(TableData)/15,0) + 1, 
+reactable_extras_server(data = TableData , id = "table", total_pages = round(nrow(TableData)/15,0) + 1,
                         columns = list(
                           # utility characteristics: 
                           pwsid = colDef(aggregate = "unique", 
