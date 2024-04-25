@@ -29,6 +29,7 @@ library(tinytex)
 library(reactablefmtr)
 library(googlesheets4)
 library(reactable.extras)
+library(openxlsx)
 
 
 ## TICKET LIST
@@ -88,7 +89,8 @@ ui <- fluidPage(
                     style = "margin-bottom: 10px; margin-left: 10px; margin-top: 10px;"),
      radioButtons("downloadType", "Download Type", 
                   choices = c("CSV" = ".csv",
-                              "GEOJSON" = ".geojson"),
+                              "GEOJSON" = ".geojson",
+                              "EXCEL" = ".xlsx"),
                   inline = TRUE),
      downloadButton("downloadData", "Download data"),
      ### ET Added ^
@@ -460,11 +462,9 @@ observeEvent(Controller$data_select,ignoreInit = TRUE,{
   TableData <- Controller$data_select %>%
     data.frame()%>%
     select(-c(geometry)) %>%
-    ####### ET  v #######
   mutate_if(is.numeric, round, digits = 2) %>%
     select(-c("tier", "east_tx_flag"))
-  ####### ET  ^ #######
-  
+
   style_viols <- data_bars(
     data = TableData,
     round_edges = TRUE,
@@ -567,7 +567,6 @@ reactable_extras_server(data = TableData , id = "table", total_pages = round(nro
                         highlight = TRUE,
                         bordered = TRUE,
                         resizable = TRUE,
-                        ###### ET v#######
                         showSortable = TRUE,
                         searchable = TRUE,
                         # adopted from this stock overflow question: https://stackoverflow.com/questions/74222616/change-search-bar-text-in-reactable-table-in-r
@@ -579,7 +578,6 @@ reactable_extras_server(data = TableData , id = "table", total_pages = round(nro
                           pageNext = "\u276f",
                           pagePreviousLabel = "Previous page",
                           pageNextLabel = "Next page"),
-                        ###### ET ^#######
                         defaultPageSize = 15,
 )
                         
@@ -592,7 +590,6 @@ reactable_extras_server(data = TableData , id = "table", total_pages = round(nro
 ################
 #### Report ####
 ################
-### ET ADDED V ####
 
 # code for report adopted from: https://shiny.posit.co/r/articles/build/generating-reports/
 output$Report <- downloadHandler(
@@ -622,14 +619,17 @@ output$downloadData <- downloadHandler(
     paste0("data", input$downloadType)
   },
   content = function(file) {
+    data_not_sf <- Controller$data_select %>% 
+      as.data.frame() %>%
+      select(-"geometry")
     if(input$downloadType == ".csv") {
-      csv_data <- Controller$data_select %>% 
-        as.data.frame() %>%
-        select(-"geometry")
-      write.csv(csv_data, 
+      write.csv(data_not_sf, 
                 file, row.names = FALSE)
     } else if(input$downloadType == ".geojson") {
       st_write(Controller$data_select, file)
+    }
+    else if(input$downloadType == ".xlsx") {
+      write.xlsx(data_not_sf, file)
     }
   })  
 }
