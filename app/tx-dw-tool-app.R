@@ -31,7 +31,6 @@ library(googlesheets4)
 library(reactable.extras)
 library(openxlsx)
 
-
 ## TICKET LIST
 ## Fixes 
 ##    xPull down no data handling 
@@ -83,7 +82,6 @@ ui <- fluidPage(
         actionButton("Context", "Table or Map",icon(name = "arrows-left-right", lib = "font-awesome"),
                      ## ET added margin-top v 
                      style = "margin-bottom: 10px; ; margin-top: 10px;"), 
-     ### ET Added V
      downloadButton("Report", "Generate report",
                     icon = icon("file-arrow-down", lib = "font-awesome"),
                     style = "margin-bottom: 10px; margin-left: 10px; margin-top: 10px;"),
@@ -93,7 +91,6 @@ ui <- fluidPage(
                               "EXCEL" = ".xlsx"),
                   inline = TRUE),
      downloadButton("downloadData", "Download data"),
-     ### ET Added ^
       )
     ),
     mainPanel(
@@ -591,27 +588,24 @@ reactable_extras_server(data = TableData , id = "table", total_pages = round(nro
 #### Report ####
 ################
 
-# code for report adopted from: https://shiny.posit.co/r/articles/build/generating-reports/
+# code for generating report: 
+# NOTE: for shinyapps.io, this needs to be published with the application,
 output$Report <- downloadHandler(
-  filename = "report.pdf",
-  content = function(file) {
-    # Copy the report file to a temporary directory before processing it, in
-    # case we don't have write permissions to the current working dir (which
-    # can happen when deployed).
-    tempReport <- file.path(tempdir(), "tx-report.Rmd")
-    # TODO: we need to figure out where this RMD should live 
-    file.copy("tx-report.Rmd", tempReport, overwrite = TRUE)
-    
-    # Set up parameters to pass to Rmd document
-    params <- list(dataset = Controller$data_select)
-    
-    # Knit the document, passing in the `params` list, and eval it in a
-    # child of the global environment (this isolates the code in the document
-    # from the code in this app).
-    rmarkdown::render(tempReport, output_file = file,
-                      params = params,
-                      envir = new.env(parent = globalenv())
-    )})
+  filename = "Report.html",
+  content = function(file_n) {
+    withProgress(message = 'Rendering, please wait!', {
+      src <- normalizePath("tx-report.Rmd")
+      temp_dir <- tempdir()
+      owd <- setwd(temp_dir)
+      on.exit(setwd(owd))
+      file.copy(src, "tx-report.Rmd", overwrite = TRUE)
+      params <- list(data_p = Controller$data_select)
+      out <- rmarkdown::render("tx-report.Rmd",
+                               params = params,
+                               envir = new.env(parent = globalenv()))
+      file.rename(out, file_n)
+      })
+  })
 
 # download handler: 
 output$downloadData <- downloadHandler(
