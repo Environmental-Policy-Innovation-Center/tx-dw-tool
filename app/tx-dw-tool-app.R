@@ -116,35 +116,31 @@ server <- function(input, output) {
 #################### 
 ### Data Import #### 
 #################### 
+## TO DO: Move this to the .RMD and return 1 object with 2 dataframes 
 tx_raw <- aws.s3::s3read_using(st_read, 
                          object = "state-drinking-water/TX/clean/app/app_test_data_simplified.geojson",
                          bucket = "tech-team-data")
 ### ET Added V
-# gs4_deauth()
-# URL <- "https://docs.google.com/spreadsheets/d/1bzNPxhL-l6DeGElhG1c70Of8DGAQasMDUuX3rPHVe2A/edit#gid=0"
-# var_names <- read_sheet(URL, sheet = "var_names")
+gs4_deauth()
+URL <- "https://docs.google.com/spreadsheets/d/1bzNPxhL-l6DeGElhG1c70Of8DGAQasMDUuX3rPHVe2A/edit#gid=0"
+data_dict <- read_sheet(URL, sheet = "var_names")
+
+
 ### ET Added ^
 
 ################
 ### Variables ##
 ################
-Controller <- reactiveValues()
+## Data Dictionary 
+data_dict <- data_dict %>%
+  filter(var_name %in% colnames(tx_raw))
 
+#Main data 
+Controller <- reactiveValues()
 Controller$data <- tx_raw 
 
+# List of counties
 Counties <- unique(tx_raw$county_served)
-
-
-event_one <- reactive(event_data(event = "plotly_selected", source = "a", priority = "event"))
-event_two <- reactive(event_data(event = "plotly_selected", source = "b", priority = "event"))
-
-## Building catagorical filters here so they can be accessed in pull down and logic handler 
-## TO DO: Set these columns to by a part of the Controller - potentially as an s3 or store the app data as a list - with this as an additional dataframe
-## TO DO: Set this to the controller! 
-checkboxSelection <- reactiveValues()
-
-columns <- c("owner_type_description","primary_source_code","pop_catagories","tier")
-labels <- c("Owner Type", "Source Type", "Size", "Service Area Boundary Data Quality")
 
 ## Generating unique list of regions
 pwsid_regions <- tx_raw %>%
@@ -153,16 +149,44 @@ pwsid_regions <- tx_raw %>%
   unique()
 
 unique_regions <- unique(unlist(strsplit(pwsid_regions$regions, ",\\s*")))
-
-# Remove NA if present
 unique_regions <- unique_regions[!is.na(unique_regions)]
+
+## poltly chart events
+event_one <- reactive(event_data(event = "plotly_selected", source = "a", priority = "event"))
+event_two <- reactive(event_data(event = "plotly_selected", source = "b", priority = "event"))
+
+## Building categorical filters here so they can be accessed in pull down and logic handler 
+## TO DO: Set these columns to by a part of the Controller - potentially as an s3 or store the app data as a list - with this as an additional dataframe
+## TO DO: Set this to the controller! 
+checkboxSelection <- reactiveValues()
+
+cat_dict <- data_dict %>%
+  filter(cat_var == "yes")
+
+cat_choices <- str_split(cat_dict$var_name, cat_dict$clean_name)
+        
+
+cat_columns <- cat_dict$var_name
+cat_labels <- cat_dict$clean_name
+
+print(cat_columns)
+print(cat_labels)
+
+# ooh this took a while with some help with gpt but its nice and clean. 
+
+cont_dict <- data_dict %>%
+             filter(cont_var == "yes")
+
+
+cont_choices <- cont_dict %>%
+  split(.$category) %>%
+  lapply(function(x) setNames(x$var_name, x$clean_name))
+
 
 ################
 ### Observes ###
 ################
 
-## Responds to changes in 'Geography' selection
-## TO DO: Fix Flashing (ONLY remove pwsids that are present currently, but not in new Controller$data_select)
 
 ######################################
 ## Observe Event for Application Logic
@@ -180,6 +204,7 @@ observeEvent(ignoreInit = TRUE,
                   event_one(), 
                   event_two(),
                   input$owner_type_description, input$primary_source_code, input$pop_catagories, input$tier), {
+                    start <- Sys.time()
 ## show spinner                                        
 show_spinner() 
 
@@ -210,10 +235,10 @@ if(length(input$Geography) == 0 | input$VarOne == input$VarTwo) {
 
   ## Filter data based on type selection
   if (!is.null(input$owner_type_description)) {
-    for (col in columns) {
+    for (col in cat_columns) {
       checkboxSelection[[col]] <- input[[col]]
     }
-    for (col in columns) {
+    for (col in cat_columns) {
       selectedChoices <- checkboxSelection[[col]]
       if (length(selectedChoices) > 0) {
         Data <- Data[Data[[col]] %in% selectedChoices, ]
@@ -230,12 +255,14 @@ if(length(input$Geography) == 0 | input$VarOne == input$VarTwo) {
 
     # Calculate label text outside the loop
     label_text <- paste0(
-      "<b> Utility ID: </b> ", Data$pwsid, " <br>",
-      "<b> Population Served: </b> ", round(Data$estimate_total_pop, 0), " <br>",
-      "<b>", input$VarOne, ": </b> ", round(Data[[input$VarOne]], 2), " <br>",
-      "<b>", input$VarTwo, ": </b> ", round(Data[[input$VarTwo]], 2), " <br>"
+      "<b>", str_to_title(Data$pws_name), "</b> <br>",
+      "<b>", data_dict %>% filter(var_name == "pwsid") %>% pull(clean_name), ": </b> ", Data$pwsid, " <br>",
+      "<b>", data_dict %>% filter(var_name == "estimate_total_pop") %>% pull(clean_name), ": </b> ", round(Data$estimate_total_pop, 0), " <br>",
+      "<b>", data_dict %>% filter(var_name == !!(input$VarOne)) %>% pull(clean_name), ": </b> ", round(Data[[input$VarOne]], 2), " <br>",
+      "<b>", data_dict %>% filter(var_name == !!(input$VarTwo)) %>% pull(clean_name), ": </b> ", round(Data[[input$VarTwo]], 2), " <br>"
     )
     Data$label_text <- lapply(label_text, htmltools::HTML)
+  
     
     ## setting up leafletproxy 
     leaflet_proxy <- leafletProxy("Map") %>%
@@ -250,8 +277,8 @@ if(length(input$Geography) == 0 | input$VarOne == input$VarTwo) {
           var1_name = input$VarTwo,
           var2_name = input$VarOne,
           ntiles = 3,
-          var1_label = input$VarTwo,
-          var2_label = input$VarOne,
+          var1_label = data_dict %>% filter(var_name == !!(input$VarTwo)) %>% pull(clean_name),
+          var2_label = data_dict %>% filter(var_name == !!(input$VarOne)) %>% pull(clean_name),
           weight = 1,
           fillOpacity = 0.7,
           color = "black",
@@ -276,10 +303,11 @@ if(length(input$Geography) == 0 | input$VarOne == input$VarTwo) {
                     fillOpacity = .9,
                     weight = .75,
                     color = "grey") %>%
-        addLegend(pal = pal, values = colvar, position = "bottomleft", title = as.character(input$VarOne))
+        addLegend(pal = pal, values = colvar, position = "bottomleft", title = data_dict %>% filter(var_name == !!(input$VarOne)) %>% pull(clean_name))
     }
   }
 }
+#print(Sys.time() -start )
 Sys.sleep(.05) 
 hide_spinner()
 })
@@ -330,22 +358,23 @@ generateCheckboxGroupInput <- function(inputId, label, choices, selected) {
 }
 
 output$SelectCat <- renderUI({
-  inputIds <- columns
+  inputIds <- cat_dict$var_name
   
   checkbox_inputs <- mapply(function(col, lab, inputId) {
-    choices <- unique(Controller$data[[col]])
+    choices <- sort(na.omit(unique(Controller$data[[col]])))
     selected <- unique(Controller$data[[col]])
     div(
       class = "col-md-6",
       generateCheckboxGroupInput(inputId, lab, choices, selected)
     )
-  }, columns, labels, inputIds, SIMPLIFY = FALSE)
+  }, cat_columns, cat_labels, inputIds, SIMPLIFY = FALSE)
   
   fluidRow(do.call(tagList, checkbox_inputs))
 })
 
 
 output$SummaryStats <- renderUI({
+  req(Controller$data_select)
   ## Number of selected utilities
   ## Total population served
   ## Median Household Income
@@ -367,7 +396,8 @@ output$SummaryStats <- renderUI({
 
 ## Variable One Select
 output$VarOne <- renderUI({
-selectInput("VarOne", "Select a variable to map", choices = tx_raw %>% select(estimate_mhi:total_violations_5yr) %>% colnames())
+selectizeInput("VarOne", "Select a variable to map:", choices = cont_choices, selected = "estimate_mhi", multiple = FALSE)
+
 })
 
 # Variable One Hist
@@ -393,7 +423,7 @@ plot_ly(x =  Controller$data_select %>% pull(!!input$VarOne), type = "histogram"
 ## Variable Two Select
 output$VarTwo <- renderUI({
   tagList(
-  selectInput("VarTwo", "Select a second variable", choices = tx_raw %>% select(pop_density:total_violations_5yr) %>% colnames() ),
+  selectInput("VarTwo", "Select a second variable:", choices = cont_choices, selected = "healthbased_violations_5yr", multiple = FALSE),
   checkboxInput("Bivariate", "Bivariate",value = FALSE)
   )
 })
