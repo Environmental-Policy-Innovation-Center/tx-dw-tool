@@ -70,12 +70,50 @@ formatted_table <- function(data) {
       pop_catagories = colDef(name = "Pop Cat", aggregate = "unique"),
       pop_density = colDef(name = "Pop Density", aggregate = "unique"),
       area_miles = colDef(name = "Area (mi)", aggregate = "unique"),
-      estimate_mhi = colDef(name = "MHI ($)", aggregate = "unique"),
+      estimate_mhi = colDef(name = "MHI ($)", 
+                            cell = color_tiles(
+                              data,
+                              colors = viridis::mako(40),
+                              number_fmt = scales::dollar,
+                              opacity = 0.5
+                            )),
       estimate_total_pop = colDef(name = "Population", aggregate = "unique"),
-      estimate_hisp_alone_per = colDef(name = "% Latino/a", aggregate = "unique"),
-      estimate_laborforce_unemployed_per = colDef(name = "% Unemployment", aggregate = "unique"),
-      estimate_hh_below_pov_per = colDef(name = "% Poverty", aggregate = "unique"),
-      estimate_poc_alone_per = colDef(name = "%POC", aggregate = "unique"),
+      estimate_hisp_alone_per = colDef(name = "% Latino/a", 
+                                       cell = data_bars(
+                                         data = data,
+                                         round_edges = TRUE,
+                                         viridis::inferno(40),
+                                         fill_opacity = 0.8, 
+                                         max_value = 100,
+                                         text_position = "outside-base"
+                                       )),
+      estimate_laborforce_unemployed_per = colDef(name = "% Unemployment", 
+                                                  cell = data_bars(
+                                                    data = data,
+                                                    round_edges = TRUE,
+                                                    viridis::inferno(40),
+                                                    fill_opacity = 0.8, 
+                                                    max_value = 100,
+                                                    text_position = "outside-base"
+                                                  )),
+      estimate_hh_below_pov_per = colDef(name = "% Poverty", 
+                                         cell = data_bars(
+                                           data = data,
+                                           round_edges = TRUE,
+                                           viridis::inferno(40),
+                                           fill_opacity = 0.8, 
+                                           max_value = 100,
+                                           text_position = "outside-base"
+                                         )),
+      estimate_poc_alone_per = colDef(name = "%POC", 
+                                      cell = data_bars(
+                                        data = data,
+                                        round_edges = TRUE,
+                                        viridis::inferno(40),
+                                        fill_opacity = 0.8, 
+                                        max_value = 100,
+                                        text_position = "outside-base"
+                                      )),
       paperwork_violations_10yr = colDef(name = "Non-Health, 10yr", 
                                          cell =   data_bars(
                                            data = data,
@@ -576,7 +614,7 @@ server <- function(input, output) {
     req(formatted_df()) 
     df <- formatted_df()
     future_promise({
-      print("table server")
+      print("table worker")
       formatted_table(df)
     }) %...>%
       data_to_plot() 
@@ -585,7 +623,7 @@ server <- function(input, output) {
   
   # use a promise to render the table
   output$Table <- renderUI({
-    print("table")
+    print("table renderUI")
     data_to_plot()
   })
 
