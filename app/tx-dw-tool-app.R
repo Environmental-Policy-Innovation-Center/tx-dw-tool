@@ -12,7 +12,7 @@ library(geojsonsf)
 library(leaflet.extras)
 library(htmltools)
 library(dplyr)
-# library(bivariatechoropleths)
+library(bivariatechoropleths)
 library(ggplot2)
 library(plotly)
 library(shinybusy)
@@ -51,7 +51,7 @@ library(future)
 ##    Report 
 
 # Set up futures and plan - for future promises
-plan(multisession)
+plan(multisession, workers = 2)
 
 #######################
 ### Table Function #### 
@@ -74,6 +74,7 @@ formatted_table <- function(data) {
                             cell = color_tiles(
                               data,
                               colors = viridis::mako(40),
+                              animation = "none",
                               number_fmt = scales::dollar,
                               opacity = 0.5
                             )),
@@ -83,6 +84,7 @@ formatted_table <- function(data) {
                                          data = data,
                                          round_edges = TRUE,
                                          viridis::inferno(40),
+                                         animation = "none",
                                          fill_opacity = 0.8, 
                                          max_value = 100,
                                          text_position = "outside-base"
@@ -94,7 +96,8 @@ formatted_table <- function(data) {
                                                     viridis::inferno(40),
                                                     fill_opacity = 0.8, 
                                                     max_value = 100,
-                                                    text_position = "outside-base"
+                                                    text_position = "outside-base",
+                                                    animation = "none"
                                                   )),
       estimate_hh_below_pov_per = colDef(name = "% Poverty", 
                                          cell = data_bars(
@@ -103,7 +106,8 @@ formatted_table <- function(data) {
                                            viridis::inferno(40),
                                            fill_opacity = 0.8, 
                                            max_value = 100,
-                                           text_position = "outside-base"
+                                           text_position = "outside-base",
+                                           animation = "none"
                                          )),
       estimate_poc_alone_per = colDef(name = "%POC", 
                                       cell = data_bars(
@@ -112,7 +116,8 @@ formatted_table <- function(data) {
                                         viridis::inferno(40),
                                         fill_opacity = 0.8, 
                                         max_value = 100,
-                                        text_position = "outside-base"
+                                        text_position = "outside-base",
+                                        animation = "none"
                                       )),
       paperwork_violations_10yr = colDef(name = "Non-Health, 10yr", 
                                          cell =   data_bars(
@@ -598,11 +603,10 @@ server <- function(input, output) {
   formatted_df <- reactive({
     req(Controller$data_select) 
     data <- Controller$data_select %>%
-      data.frame() %>%
-      select(-c(geometry)) %>%
-      mutate(across(where(is.numeric), ~ round(., digits = 2))) %>%
-      select(-c("tier","total_violations_5yr", "total_violations_10yr"))
-  
+      as.data.frame() %>%
+      select(-c(geometry, tier, total_violations_5yr, total_violations_10yr)) %>%
+      mutate(across(where(is.numeric), ~ round(., digits = 2)))
+
     data
   })
   
@@ -677,3 +681,4 @@ server <- function(input, output) {
 
 # Run the application 
 shinyApp(ui = ui, server = server)
+
