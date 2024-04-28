@@ -27,9 +27,9 @@ RUN install2.r --error aws.ec2metadata
 
 #------------
 RUN ls -al '/home/epic'
-ADD dtx-dw-tool-app.R /home/epic/
+ADD app/tx-dw-tool-app.R /home/epic/
 
-ADD ./www /home/epic/www
+ADD ./app/www /home/epic/www
 
 EXPOSE 2000 2001
 
