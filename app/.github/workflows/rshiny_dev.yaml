@@ -17,18 +17,18 @@ env:
 
   # ECR
   ECR_REGISTRY: 516937823875.dkr.ecr.us-east-1.amazonaws.com
-  ECR_REPOSITORY: ep_app_service_r-shiny-template
+  ECR_REPOSITORY: ep_app_service_tx-app
 
   # ECS
   ECS_CLUSTER_NAME: ep_core__dev_us-east-1
-  ECS_FAMILY: r-shiny-template
-  ECS_SERVICE_NAME: r-shiny-template
-  ECS_SERVICE_SHORT_NAME: rst
+  ECS_FAMILY: tx-app
+  ECS_SERVICE_NAME: tx-app
+  ECS_SERVICE_SHORT_NAME: tx
   ECR_SERVICE_BUILDER_IMAGE: 516937823875.dkr.ecr.us-east-1.amazonaws.com/ep_service_builder:latest
 
-  EC2_SERVICE_INSTANCE_TYPE: t3.micro
+  EC2_SERVICE_INSTANCE_TYPE: t3.large
   EC2_SERVICE_INSTANCE_COUNT: 2
-  ECS_SERVICE_CONTAINER_RAM_MB: 900
+  ECS_SERVICE_CONTAINER_RAM_MB: 1800
 
 #----------------------------
 jobs:
