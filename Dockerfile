@@ -29,12 +29,12 @@ RUN install2.r --error aws.ec2metadata
 RUN ls -al '/home/epic'
 ADD app/tx-dw-tool-app.R /home/epic/
 
-ADD ./app/www /home/epic/www
+#ADD ./app/www /home/epic/www
 
 EXPOSE 2000 2001
 
 WORKDIR /home/epic
 
-CMD ["R", "-e", "httpuv::startServer('0.0.0.0', 2001, list(call = function(req) { list(status = 200, body = 'OK', headers = list('Content-Type' = 'text/plain')) })); shiny::runApp('/home/epic/dw-dashboard-app.R', port = 2000, host = '0.0.0.0')"]
+CMD ["R", "-e", "httpuv::startServer('0.0.0.0', 2001, list(call = function(req) { list(status = 200, body = 'OK', headers = list('Content-Type' = 'text/plain')) })); shiny::runApp('/home/epic/tx-dw-tool-app.R', port = 2000, host = '0.0.0.0')"]
 
 #------------
