@@ -1,4 +1,4 @@
-FROM rocker/r-ver:4.2.2
+FROM rocker/rstudio:latest
 
 RUN apt-get update && apt-get install -y \
 libcurl4-openssl-dev \
@@ -17,7 +17,30 @@ RUN cd /home/epic
 
 
 RUN install2.r --error shiny \
-shiny \sf \leaflet \reactable \aws.s3 \geojsonsf \leaflet.extras \htmltools \dplyr \bivariatechoropleths \ggplot2 \plotly \shinybusy \stringr \scales \shinyalert \reactable \shinyjs \shinycssloaders \purrr \shinyBS \rlang \reactablefmtr \googlesheets4 \reactable.extras \
+sf \
+leaflet \
+reactable \
+aws.s3 \
+geojsonsf \
+leaflet.extras \
+htmltools \
+dplyr \
+bivariatechoropleths \
+ggplot2 \
+plotly \
+shinybusy \
+stringr \
+scales \
+shinyalert \
+reactable \
+shinyjs \
+shinycssloaders \
+purrr \
+shinyBS \
+rlang \
+reactablefmtr \
+googlesheets4 \
+reactable.extras \
 tippy 
 
 # needed for healthcheck endpoint
