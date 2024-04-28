@@ -25,10 +25,10 @@ library(shinycssloaders)
 library(purrr)
 library(shinyBS)
 library(rlang)
-library(tinytex)
 library(reactablefmtr)
 library(googlesheets4)
 library(reactable.extras)
+library(tippy)
 
 
 ## TICKET LIST
@@ -51,6 +51,15 @@ library(reactable.extras)
 ### UI #### 
 ###########
 ui <- fluidPage(
+  
+  tags$head(
+    tags$style(
+      HTML("
+      .selectize-control {
+        margin-top: -10px; /* Adjust this value as needed */
+      }
+      ")
+    )),
 
   reactable_extras_dependency(),
   add_busy_spinner(spin = "fading-circle", position = "top-left"),
@@ -61,23 +70,28 @@ ui <- fluidPage(
       id ="sidebar",
       sidebarPanel(
         style = "position: fixed; height: 100%; width: 500px; overflow-y: auto; margin-left: -30px;", 
-        div(style = "display:inline-block; float:right; margin-bottom: 20px"),
+        div(style = "display:inline-block; float:right"),
         width = 4,
         uiOutput("SelectGeography", style = "width: 100%"), 
-        bsCollapse(
-          id = "CollapsePanel", 
-     #     open = c("Filter by Categories"), 
-          multiple = TRUE,
-          bsCollapsePanel(
-            "Filter by Categories",
-            uiOutput("SelectCat", style = "line-height: 20px; margin-top: -10px; margin-bottom: -10px;"),  
-            style = "primary"
-          )
+        bsCollapsePanel(
+          div(
+            style = "display: inline-block; position: relative;",
+            div(
+              style = "margin-left: -10px; margin-bottom: -18px",
+              tipify(el = icon(name = "filter", lib = "font-awesome"), 
+                     placement = "right", title = HTML("Filter the utilities selected by these categories. Some filters might not effect your data due to insufficent count."))
+            ),
+            ## we need this lil HTML to space out the text to the right
+            HTML("&nbsp;"),
+            "Filter by Categories"
+          ),
+          uiOutput("SelectCat", style = "line-height: 20px; margin-top: -10px; margin-bottom: -10px;"),  
+          style = "primary"
         ),
         uiOutput("SummaryStats", style = "margin-bottom: 10px"),
         uiOutput("VarOne", style = "width: 100%"), 
         plotlyOutput("VarOneHist", width = "300px", height = "150px"),
-        uiOutput("VarTwo", style = "width: 100%"), 
+        uiOutput("VarTwo", style = "width: 100%; margin-top: 10px"), 
         plotlyOutput("VarTwoHist", width = "300px", height = "150px"),
         actionButton("Context", "Table or Map",icon(name = "arrows-left-right", lib = "font-awesome"),
                      ## ET added margin-top v 
@@ -142,7 +156,7 @@ Controller$data <- tx_raw
 # List of counties
 Counties <- unique(tx_raw$county_served)
 
-## Generating unique list of regions
+## Generating unique list of regionsw
 pwsid_regions <- tx_raw %>%
   data.frame()%>%
   select(regions)%>%
@@ -169,8 +183,6 @@ cat_choices <- str_split(cat_dict$var_name, cat_dict$clean_name)
 cat_columns <- cat_dict$var_name
 cat_labels <- cat_dict$clean_name
 
-print(cat_columns)
-print(cat_labels)
 
 # ooh this took a while with some help with gpt but its nice and clean. 
 
@@ -204,7 +216,6 @@ observeEvent(ignoreInit = TRUE,
                   event_one(), 
                   event_two(),
                   input$owner_type_description, input$primary_source_code, input$pop_catagories, input$tier), {
-                    start <- Sys.time()
 ## show spinner                                        
 show_spinner() 
 
@@ -246,8 +257,8 @@ if(length(input$Geography) == 0 | input$VarOne == input$VarTwo) {
     }
   }
 
-  if(nrow(Data) < 3) {
-    showNotification(id = "notification", "Insufficient data, please select more utilities", type = "warning")
+  if(nrow(Data) < 2) {
+    showNotification(id = "notification", "Insufficient data, please select at least two utilities.", type = "warning")
   } else {
     
     ## Update Controller$data_select
@@ -274,11 +285,11 @@ if(length(input$Geography) == 0 | input$VarOne == input$VarTwo) {
       leaflet_proxy %>%
         bivariatechoropleths::addBivariateChoropleth(
           map_data = Data,
-          var1_name = input$VarTwo,
-          var2_name = input$VarOne,
+          var1_name = input$VarOne,
+          var2_name = input$VarTwo,
           ntiles = 3,
-          var1_label = data_dict %>% filter(var_name == !!(input$VarTwo)) %>% pull(clean_name),
-          var2_label = data_dict %>% filter(var_name == !!(input$VarOne)) %>% pull(clean_name),
+          var1_label = data_dict %>% filter(var_name == !!(input$VarOne)) %>% pull(clean_name),
+          var2_label = data_dict %>% filter(var_name == !!(input$VarTwo)) %>% pull(clean_name),
           weight = 1,
           fillOpacity = 0.7,
           color = "black",
@@ -292,7 +303,7 @@ if(length(input$Geography) == 0 | input$VarOne == input$VarTwo) {
       ## Univariate plot
       colvar <- Data[[input$VarOne]]
       pal <- colorNumeric(
-        palette = c("#f5f5f5", "#dd7c8a", "#cc0124"),
+        palette = c("#f5f5f5", "#7ab3d1", "#036eae"),
         domain = colvar
       )
       leaflet_proxy %>%
@@ -308,7 +319,7 @@ if(length(input$Geography) == 0 | input$VarOne == input$VarTwo) {
   }
 }
 #print(Sys.time() -start )
-Sys.sleep(.05) 
+#Sys.sleep(.05) 
 hide_spinner()
 })
 
@@ -347,8 +358,12 @@ output$SelectGeography <- renderUI({
   
   GeoChoices$Regions <- sort(unique_regions)
   GeoChoices$Counties <- sort(Counties)
-  
-selectizeInput("Geography","Select a Geography", choices = GeoChoices, selected = "I - East Texas", multiple = TRUE, options = list(maxItems = 5))
+  tagList(
+    tipify(el = icon(name = "map-location-dot", lib = "font-awesome", style = "font-size: 17px"), placement = "right", 
+           title = HTML("Search or select a region defined by the Texas Water Development Board, or an individual county. Max selection size is five")),
+    HTML(paste("<b> Select a Geography: </b>")),
+    selectizeInput("Geography","", choices = GeoChoices, selected = "I - East Texas", multiple = TRUE, options = list(maxItems = 5)))
+    # )
 })
 
 
@@ -396,7 +411,12 @@ output$SummaryStats <- renderUI({
 
 ## Variable One Select
 output$VarOne <- renderUI({
-selectizeInput("VarOne", "Select a variable to map:", choices = cont_choices, selected = "estimate_mhi", multiple = FALSE)
+  tagList(
+    tipify(el = icon(name = "chart-column", lib = "font-awesome", style = "color: #7ab3d1; font-size: 17px"), placement = "right", 
+           title = HTML("Select a variable to modify the map and histogram below. You can define the variable range by clicking and dragging the histogram. Double click to reset.")),
+  HTML(paste("<b> Select a Primary Variable: </b>")),
+  selectizeInput("VarOne", "", choices = cont_choices, selected = "estimate_mhi", multiple = FALSE)
+  )
 
 })
 
@@ -413,7 +433,7 @@ output$VarOneHist <- renderPlotly({
     pad = 5
   )
   
-plot_ly(x =  Controller$data_select %>% pull(!!input$VarOne), type = "histogram", source = "a", nbinsx = 50, marker = list(color = "#dd7c8a") )%>% 
+plot_ly(x =  Controller$data_select %>% pull(!!input$VarOne), type = "histogram", source = "a", nbinsx = 50, marker = list(color = "#7ab3d1") )%>% 
   config(displayModeBar = FALSE) %>%
   event_register("plotly_selected")%>%
  # add_trace(x = density$x, y = density$y, type = "scatter", mode = "lines", fill = "tozeroy", yaxis = "y2", name = "Density") %>% 
@@ -423,8 +443,14 @@ plot_ly(x =  Controller$data_select %>% pull(!!input$VarOne), type = "histogram"
 ## Variable Two Select
 output$VarTwo <- renderUI({
   tagList(
-  selectInput("VarTwo", "Select a second variable:", choices = cont_choices, selected = "healthbased_violations_5yr", multiple = FALSE),
-  checkboxInput("Bivariate", "Bivariate",value = FALSE)
+    tipify(el = icon(name = "chart-column", lib = "font-awesome", style = "color: #dd7c8a; font-size: 17px"), placement = "right",
+           title = HTML("Select a variable to modify the utilities mapped and the histogram below. Click Bivariate to map this variable with your primary variable. You can define the variable range by clicking and dragging the histogram. Double click to reset.")),
+    HTML(paste("<b> Select a Secondary Variable: </b>")),
+  selectInput("VarTwo", "", choices = cont_choices, selected = "healthbased_violations_5yr", multiple = FALSE),
+  tipify(el = icon(name = "clone", lib = "font-awesome", style = "font-size: 17px"), placement = "right",
+         title = HTML("Map your primary variable against your secondary variable")),
+  HTML(paste("<b> Bivariate mapping: </b>")),
+    checkboxInput("Bivariate", "", value = FALSE)
   )
 })
 
@@ -440,7 +466,7 @@ output$VarTwoHist <- renderPlotly({
     pad = 5
   )
   
-  plot_ly(x =  Controller$data_select %>% pull(!!input$VarTwo), type = "histogram", source = "b", nbinsx = 50, marker = list(color = "#7ab3d1") )%>% 
+  plot_ly(x =  Controller$data_select %>% pull(!!input$VarTwo), type = "histogram", source = "b", nbinsx = 50, marker = list(color = "#dd7c8a") )%>% 
     config(displayModeBar = FALSE) %>%
     event_register("plotly_selected")%>%
     layout(dragmode = "select",  margin = m)
