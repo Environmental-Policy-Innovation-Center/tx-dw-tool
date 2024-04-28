@@ -32,20 +32,6 @@ library(tippy)
 
 
 ## TICKET LIST
-## Fixes 
-##    xPull down no data handling 
-##    xNo data selected during histogram selection 
-##    Map flashing on render
-##    xFix same variable clashing 
-##    xMake utility type filter cumulative
-## Enhancements 
-##    Popups 
-##    xRegion filters
-##    App ready variable names
-##    variable type groupings for pulldowns 
-##    Documentation workflow 
-##    xTable 
-##    Report 
 
 ###########
 ### UI #### 
