@@ -40,7 +40,7 @@ library(future)
 ### UI #### 
 ###########
 ## future/promises
-plan(multisession, workers = 2)
+plan(multicore, workers = 2)
 
 
 ##### Reactable Table Code 
