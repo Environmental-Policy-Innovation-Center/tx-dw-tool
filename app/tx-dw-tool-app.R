@@ -42,7 +42,6 @@ library(future)
 ## future/promises
 plan(multicore, workers = 2)
 
-
 ##### Reactable Table Code 
 formatted_table <- function(data) {
   reactable(

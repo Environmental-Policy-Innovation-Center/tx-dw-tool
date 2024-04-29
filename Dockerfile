@@ -56,7 +56,6 @@ RUN R -e "remotes::install_github('chris31415926535/bivariatechoropleths')"
 
 # Copy the R script
 ADD app/tx-dw-tool-app.R /home/epic/
-ADD app/tx-report.Rmd /home/epic/
 
 # Expose ports
 EXPOSE 2000 2001
