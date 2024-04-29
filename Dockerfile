@@ -47,7 +47,9 @@ RUN install2.r --error \
     aws.ec2metadata \
     remotes \
     promises \
-    future
+    future \ 
+    maps \
+    knitr 
 
 # Install the bivariatechoropleths package from GitHub
 RUN R -e "remotes::install_github('chris31415926535/bivariatechoropleths')"
