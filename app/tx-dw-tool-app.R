@@ -32,6 +32,7 @@ library(tippy)
 library(viridis)
 library(promises)
 library(future)
+library(tinytex)
 
 
 ## TICKET LIST
@@ -39,140 +40,8 @@ library(future)
 ###########
 ### UI #### 
 ###########
-## future/promises
-plan(multicore, workers = 2)
 
 ##### Reactable Table Code 
-formatted_table <- function(data) {
-  reactable(
-    data,
-    columns = list(
-      pwsid = colDef(name = "ID", aggregate = "unique"),
-      pws_name = colDef(name = "Water System Name", aggregate = "unique"),
-      county_served = colDef(name = "County", aggregate = "unique"),
-      regions = colDef(name = "Region", aggregate = "unique"),
-      primary_source_code = colDef(name = "Source", aggregate = "unique"),
-      owner_type_description = colDef(name = "Owner", aggregate = "unique"),
-      pop_catagories = colDef(name = "Pop Cat", aggregate = "unique"),
-      pop_density = colDef(name = "Pop Density", aggregate = "unique"),
-      area_miles = colDef(name = "Area (mi)", aggregate = "unique"),
-      estimate_mhi = colDef(name = "MHI ($)",
-                            cell = color_tiles(
-                              data,
-                              colors = viridis::mako(40),
-                              animation = "none",
-                              number_fmt = scales::dollar,
-                              opacity = 0.5
-                            )),
-      estimate_total_pop = colDef(name = "Population", aggregate = "unique"),
-      estimate_hisp_alone_per = colDef(name = "% Latino/a",
-                                       cell = data_bars(
-                                         data = data,
-                                         round_edges = TRUE,
-                                         viridis::inferno(40),
-                                         animation = "none",
-                                         fill_opacity = 0.8,
-                                         max_value = 100,
-                                         text_position = "outside-base"
-                                       )),
-      estimate_laborforce_unemployed_per = colDef(name = "% Unemployment",
-                                                  cell = data_bars(
-                                                    data = data,
-                                                    round_edges = TRUE,
-                                                    viridis::inferno(40),
-                                                    fill_opacity = 0.8,
-                                                    max_value = 100,
-                                                    text_position = "outside-base",
-                                                    animation = "none"
-                                                  )),
-      estimate_hh_below_pov_per = colDef(name = "% Poverty",
-                                         cell = data_bars(
-                                           data = data,
-                                           round_edges = TRUE,
-                                           viridis::inferno(40),
-                                           fill_opacity = 0.8,
-                                           max_value = 100,
-                                           text_position = "outside-base",
-                                           animation = "none"
-                                         )),
-      estimate_poc_alone_per = colDef(name = "%POC",
-                                      cell = data_bars(
-                                        data = data,
-                                        round_edges = TRUE,
-                                        viridis::inferno(40),
-                                        fill_opacity = 0.8,
-                                        max_value = 100,
-                                        text_position = "outside-base",
-                                        animation = "none"
-                                      )),
-      paperwork_violations_10yr = colDef(name = "Non-Health, 10yr",
-                                         cell =   data_bars(
-                                           data = data,
-                                           round_edges = TRUE,
-                                           fill_color = viridis::inferno(40),
-                                           fill_opacity = 0.8,
-                                           text_position = "outside-base",
-                                           animation = "none"
-                                         )),
-      healthbased_violations_10yr = colDef(name = "Health, 10yr",
-                                           cell = data_bars(
-                                             data = data,
-                                             round_edges = TRUE,
-                                             fill_color = viridis::inferno(40),
-                                             fill_opacity = 0.8,
-                                             text_position = "outside-base",
-                                             animation = "none"
-                                           )),
-      paperwork_violations_5yr = colDef(name = "Non-Health, 5yr",
-                                        cell =   data_bars(
-                                          data = data,
-                                          round_edges = TRUE,
-                                          fill_color = viridis::inferno(40),
-                                          fill_opacity = 0.8,
-                                          text_position = "outside-base",
-                                          animation = "none"
-                                        )),
-      healthbased_violations_5yr = colDef(name = "Health, 5yr",
-                                          cell =   data_bars(
-                                            data = data,
-                                            round_edges = TRUE,
-                                            fill_color = viridis::inferno(40),
-                                            fill_opacity = 0.8,
-                                            text_position = "outside-base",
-                                            animation = "none"
-                                          ))
-    ),
-    columnGroups = list(
-      colGroup(name = "Utility", columns = c("pwsid", "pws_name", "county_served",
-                                             "regions", "primary_source_code",
-                                             "owner_type_description", "pop_catagories",
-                                             "pop_density", "area_miles")),
-      colGroup(name = "Socioeconomic", columns = c("estimate_mhi", "estimate_total_pop",
-                                                   "estimate_hisp_alone_per", "estimate_laborforce_unemployed_per",
-                                                   "estimate_hh_below_pov_per", "estimate_poc_alone_per")),
-      colGroup(name = "Violations", columns = c("healthbased_violations_5yr",
-                                                "healthbased_violations_10yr",
-                                                "paperwork_violations_5yr",
-                                                "paperwork_violations_10yr"))
-    ),
-    highlight = TRUE,
-    bordered = TRUE,
-    resizable = TRUE,
-    # server = TRUE,
-    showSortable = TRUE,
-    searchable = TRUE,
-    language = reactableLang(
-      searchPlaceholder = "Search the table",
-      noData = "No entries found",
-      pageInfo = "{rowStart}\u2013{rowEnd} of {rows} entries",
-      pagePrevious = "\u276e",
-      pageNext = "\u276f",
-      pagePreviousLabel = "Previous page",
-      pageNextLabel = "Next page"
-    ),
-    defaultPageSize = 10
-  )
-}
 
 
 #######
@@ -257,18 +126,6 @@ ui <- fluidPage(
 #### SERVER #### 
 ################
 server <- function(input, output) {
-  
-  # observe for rendering table in a future promise:
-  observe({
-    req(formatted_df())
-    df <- formatted_df()
-    future_promise({
-      print("table worker")
-      formatted_table(df)
-    }) %...>%
-      data_to_plot()
-    return(NULL)
-  })
   
 #################### 
 ### Data Import #### 
@@ -675,26 +532,88 @@ output$TableText <- renderText({
   paste("Click a column to sort and slide a column to expand")
 })
 
-# pre-process table data
-formatted_df <- reactive({
-  req(Controller$data_select)
-  data <- Controller$data_select %>%
-    as.data.frame() %>%
-    select(-c(geometry, tier, total_violations_5yr, total_violations_10yr,
-              east_tx_flag)) %>%
-    mutate(across(where(is.numeric), ~ round(., digits = 2)))
-  data
-})
-
 
 # use a promise to render the table
 output$Table <- renderUI({
-  print("table renderUI")
-  data_to_plot()
+  req(Controller$data_select)
+  TableData <- Controller$data_select %>%
+    data.frame()%>%
+    select(-c(geometry)) %>%
+    mutate_if(is.numeric, round, digits = 2) %>%
+    select(-c("tier", "east_tx_flag")) %>%
+    relocate(pws_name)
+  renderReactable({
+    reactable(TableData,
+              columns = list(
+                # utility characteristics:
+                pwsid = colDef(aggregate = "unique",
+                               name = "ID"),
+                pws_name = colDef(aggregate = "unique",
+                                  name = "Water System Name"),
+                county_served = colDef(aggregate = "unique",
+                                       name = "County"),
+                regions = colDef(aggregate = "unique",
+                                 name = "Region"),
+                primary_source_code = colDef(aggregate = "unique",
+                                             name = "Source"),
+                owner_type_description = colDef(aggregate = "unique",
+                                                name = "Owner"),
+                pop_catagories = colDef(aggregate = "unique",
+                                        name = "Pop Cat"),
+                pop_density = colDef(name = "Pop Density"),
+                area_miles = colDef(name = "Area (mi)"),
+                # socioeconomic:
+                estimate_mhi = colDef(name = "MHI ($)"),
+                estimate_total_pop = colDef(name = "Population"),
+                estimate_hisp_alone_per = colDef(name = "% Latino/a"),
+                estimate_laborforce_unemployed_per = colDef(name = "% Unemployment"),
+                estimate_hh_below_pov_per = colDef(name = "% Poverty"),
+                estimate_poc_alone_per = colDef(name = "%POC"),
+                # violations:
+                paperwork_violations_10yr = colDef(name = "Non-Health, 10yr"),
+                healthbased_violations_10yr = colDef(name = "Health, 10yr"),
+                total_violations_10yr = colDef(name = "Total, 10yr"),
+                paperwork_violations_5yr = colDef(name = "Non-Health, 5yr"),
+                healthbased_violations_5yr = colDef(name = "Health, 5yr"),
+                total_violations_5yr = colDef(name = "Total, 5yr")
+              ),
+              columnGroups = list(
+                colGroup(name = "Utility", columns = c("pwsid", "pws_name",
+                                                       "county_served",
+                                                       "regions",
+                                                       "primary_source_code",
+                                                       "owner_type_description", "pop_catagories",
+                                                       "pop_density", "area_miles")),
+                colGroup(name = "Socioeconomic", columns = c("estimate_mhi", "estimate_total_pop",
+                                                             "estimate_hisp_alone_per", "estimate_laborforce_unemployed_per",
+                                                             "estimate_hh_below_pov_per", "estimate_poc_alone_per")),
+                colGroup(name = "Violations", columns = c("healthbased_violations_5yr",
+                                                          "healthbased_violations_10yr",
+                                                          "paperwork_violations_5yr",
+                                                          "paperwork_violations_10yr",
+                                                          "total_violations_5yr",
+                                                          "total_violations_10yr"))
+              ),
+              highlight = TRUE,
+              bordered = TRUE,
+              resizable = TRUE,
+              ###### ET v#######
+              showSortable = TRUE,
+              searchable = TRUE,
+              # adopted from this stock overflow question: https://stackoverflow.com/questions/74222616/change-search-bar-text-in-reactable-table-in-r
+              language = reactableLang(
+                searchPlaceholder = "Search the table",
+                noData = "No entries found",
+                pageInfo = "{rowStart}\u2013{rowEnd} of {rows} entries",
+                pagePrevious = "\u276e",
+                pageNext = "\u276f",
+                pagePreviousLabel = "Previous page",
+                pageNextLabel = "Next page"),
+              ###### ET ^#######
+              defaultPageSize = 15,
+    )
+  })
 })
-################
-#### Charts ####
-################
 
 ################
 #### Report ####
