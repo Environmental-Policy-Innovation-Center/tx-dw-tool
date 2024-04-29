@@ -58,8 +58,6 @@ RUN install2.r --error \
 # Install the bivariatechoropleths package from GitHub
 RUN R -e "remotes::install_github('chris31415926535/bivariatechoropleths')"
 
-RUN R -e "tinytex::install_tinytex()"
-
 # Copy the R script
 ADD app/tx-dw-tool-app.R /home/epic/
 
