@@ -65,10 +65,10 @@ ui <- fluidPage(
     div(
       id ="sidebar",
       sidebarPanel(
-        style = "position: fixed; height: 100%; width: 500px; overflow-y: auto; margin-left: -30px;", 
+        style = "position: fixed; height: 100%; width: 420px; overflow-y: auto; margin-left: -30px;", 
         div(style = "display:inline-block; float:right"),
-        width = 4,
-        uiOutput("SelectGeography", style = "width: 100%"), 
+        width = 3,
+        uiOutput("SelectGeography", style = "width: 95%"), 
         bsCollapsePanel(
           div(
             style = "display: inline-block; position: relative;",
@@ -84,11 +84,11 @@ ui <- fluidPage(
           uiOutput("SelectCat", style = "line-height: 20px; margin-top: -10px; margin-bottom: -10px;"),  
           style = "primary"
         ),
-        uiOutput("SummaryStats", style = "margin-bottom: 10px"),
-        uiOutput("VarOne", style = "width: 100%"), 
-        plotlyOutput("VarOneHist", width = "300px", height = "150px"),
-        uiOutput("VarTwo", style = "width: 100%; margin-top: 10px"), 
-        plotlyOutput("VarTwoHist", width = "300px", height = "150px"),
+        uiOutput("SummaryStats", style = "margin-bottom: 10px; margin-top: -10px;"),
+        uiOutput("VarOne", style = "width: 90%"), 
+        plotlyOutput("VarOneHist", width = "350px", height = "125px"),
+        uiOutput("VarTwo", style = "width: 90%; margin-top: 10px"), 
+        plotlyOutput("VarTwoHist", width = "350px", height = "125px"),
         actionButton("Context", "Table or Map",icon(name = "arrows-left-right", lib = "font-awesome"),
                      ## ET added margin-top v 
                      style = "margin-bottom: 10px; ; margin-top: 10px;"), 
@@ -97,14 +97,14 @@ ui <- fluidPage(
      downloadButton("Report", "Generate report",
                     icon = icon("file-arrow-down", lib = "font-awesome"),
                     style = "margin-bottom: 10px; margin-left: 10px; margin-top: 10px;"),
-     radioButtons("downloadType", "Download Type", 
-                  choices = c("CSV" = ".csv",
-                              "GEOJSON" = ".geojson"),
-                  inline = TRUE),
+     div(style = "display: inline-block; position: relative;",
      downloadButton("downloadData", "Download data"),
-     checkboxInput("Simplify", "Simplifiy Polygons"),
-
-      )
+     radioButtons("downloadType", "Download Type", 
+                  choices = c(".csv" = ".csv",
+                              ".geojson" = ".geojson"),
+                  inline = TRUE),
+    
+      ))
     ),
     mainPanel(
       style = "margin-left: -15px;",
@@ -113,7 +113,7 @@ ui <- fluidPage(
         uiOutput("TableText",
                  style = "font-size: 15px; margin-left: 5px; position:relative; z-index: 500; font-style: italic; margin-top: 5px;"),
         uiOutput("Table", style = "margin-left: 5px; background-color: none;", width = "100px")),
-      width = 8
+      width = 9
     ),
     position = c("right"), 
     fluid = TRUE
@@ -200,7 +200,6 @@ cat_labels <- cat_dict$clean_name
 
 
 # ooh this took a while with some help with gpt but its nice and clean. 
-
 cont_dict <- data_dict %>%
              filter(cont_var == "yes")
 
@@ -325,7 +324,8 @@ if(length(input$Geography) == 0 | input$VarOne == input$VarTwo) {
           weight = 1,
           fillOpacity = 0.7,
           color = "black",
-          paletteFunction = pals::tolochko.redblue
+          paletteFunction = pals::tolochko.redblue,
+          group = "Sabs"
         ) %>%
         addPolygons(data = Data,
                     label = ~label_text,
@@ -414,8 +414,16 @@ output$SelectGeography <- renderUI({
     tipify(el = icon(name = "map-location-dot", lib = "font-awesome", style = "font-size: 17px"), placement = "right", 
            title = HTML("Search or select a region defined by the Texas Water Development Board, or an individual county. Max selection size is five")),
     HTML(paste("<b> Select a Geography: </b>")),
-    selectizeInput("Geography","", choices = GeoChoices, selected = "I - East Texas", multiple = TRUE, options = list(maxItems = 5)))
-    # )
+    selectizeInput("Geography","", choices = GeoChoices, selected = "I - East Texas", multiple = TRUE, options = list(maxItems = 5)),
+    div(style = "display:flex; align-items: center; margin-top: -20px",
+        tipify(el = icon(name = "draw-polygon", lib = "font-awesome", style = "font-size: 17px; margin-right: 5px;"), placement = "right",
+               title = HTML("On limited bandwith or plotting lots of data? Reduce the data quality for service area boundary geographies to improve rendering")),
+        HTML(paste("<b> Simplify Geographies </b>")),
+        HTML("&nbsp;"), # Adding a non-breaking space for spacing
+        div(style = "margin-bottom: -12px; margin-right: -3px;",
+            checkboxInput("Simplify", ""))
+
+     ))
 })
 
 
@@ -447,12 +455,13 @@ output$SummaryStats <- renderUI({
   ## Median Household Income
   ## Percent of Color 
   
-  UtilityCount <- paste("<b>", "Utility Count:", scales::number(length(unique(Controller$data_select$pwsid)), big.mark = ","),"</b>", "<br>")
-  Population <- paste("<b>", "Utility Users:", scales::number(sum(Controller$data_select$estimate_total_pop), big.mark = ","),"</b>", "<br>")
-  MHI <- paste("<b> ", "Avg. Median Household Income:", dollar(mean(Controller$data_select$estimate_mhi, na.rm = TRUE)),"</b>", "<br>")
-  POC <- paste("<b>", "Percent of Color:", scales::percent(mean(Controller$data_select$estimate_poc_alone_per, na.rm = TRUE) / 100) ,"</b>", "<br>")
+  UtilityCount <- paste("<i>", "Utility Count: </i> <b>", scales::number(length(unique(Controller$data_select$pwsid)), big.mark = ","),"</b>", "<br>")
+  Population <- paste("<i>", "Utility Users: </i> <b>", scales::number(sum(Controller$data_select$estimate_total_pop), big.mark = ","),"</b>", "<br>")
+  MHI <- paste("<i> ", "Avg. Median Household Income: </i> <b>", dollar(mean(Controller$data_select$estimate_mhi, na.rm = TRUE)),"</b>", "<br>")
+  POC <- paste("<i>", "Percent of Color: </i> <b>", scales::percent(mean(Controller$data_select$estimate_poc_alone_per, na.rm = TRUE) / 100) ,"</b>", "<br>")
   
   tagList(
+    HTML(paste("<b> Summary Statistics: </b> <br>")),
     HTML(UtilityCount),
     HTML(Population), 
     HTML(POC),
@@ -464,6 +473,14 @@ output$SummaryStats <- renderUI({
 ## Variable One Select
 output$VarOne <- renderUI({
   tagList(
+    div(style = "display:flex; align-items: center; margin-top: -10px",
+        tipify(el = icon(name = "clone", lib = "font-awesome", style = "font-size: 17px; margin-right: 5px;"), placement = "right",
+               title = HTML("Map your primary variable against your secondary variable")),
+        HTML(paste("<b> Bivariate mapping </b>")),
+        HTML("&nbsp;"), # Adding a non-breaking space for spacing
+        div(style = "margin-bottom: -12px; margin-right: -3px;",
+            checkboxInput("Bivariate", "", value = FALSE))
+    ),
     tipify(el = icon(name = "chart-column", lib = "font-awesome", style = "color: #7ab3d1; font-size: 17px"), placement = "right", 
            title = HTML("Select a variable to modify the map and histogram below. You can define the variable range by clicking and dragging the histogram. Double click to reset.")),
   HTML(paste("<b> Select a Primary Variable: </b>")),
@@ -495,14 +512,10 @@ plot_ly(x =  Controller$data_select %>% pull(!!input$VarOne), type = "histogram"
 ## Variable Two Select
 output$VarTwo <- renderUI({
   tagList(
-    tipify(el = icon(name = "chart-column", lib = "font-awesome", style = "color: #dd7c8a; font-size: 17px"), placement = "right",
+    tipify(el = icon(name = "chart-column", lib = "font-awesome", style = "color: #dd7c8a; font-size: 17px;"), placement = "right",
            title = HTML("Select a variable to modify the utilities mapped and the histogram below. Click Bivariate to map this variable with your primary variable. You can define the variable range by clicking and dragging the histogram. Double click to reset.")),
     HTML(paste("<b> Select a Secondary Variable: </b>")),
-  selectInput("VarTwo", "", choices = cont_choices, selected = "healthbased_violations_5yr", multiple = FALSE),
-  tipify(el = icon(name = "clone", lib = "font-awesome", style = "font-size: 17px"), placement = "right",
-         title = HTML("Map your primary variable against your secondary variable")),
-  HTML(paste("<b> Bivariate mapping: </b>")),
-    checkboxInput("Bivariate", "", value = FALSE)
+    selectInput("VarTwo", "", choices = cont_choices, selected = "healthbased_violations_5yr", multiple = FALSE)
   )
 })
 
