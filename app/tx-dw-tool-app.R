@@ -83,6 +83,7 @@ ui <- fluidPage(
         actionButton("Context", "Table or Map",icon(name = "arrows-left-right", lib = "font-awesome"),
                      ## ET added margin-top v 
                      style = "margin-bottom: 10px; ; margin-top: 10px;"), 
+     #   actionButton("hideSidebar", "Hide sidebar"),
      ### ET Added V
      downloadButton("Report", "Generate report",
                     icon = icon("file-arrow-down", lib = "font-awesome"),
@@ -92,12 +93,13 @@ ui <- fluidPage(
                               "GEOJSON" = ".geojson"),
                   inline = TRUE),
      downloadButton("downloadData", "Download data"),
-     ### ET Added ^
+     checkboxInput("Simplify", "Simplifiy Polygons"),
+
       )
     ),
     mainPanel(
-      style = "margin-left: -15px;",
-      leafletOutput("Map", height = "100vh"),
+      style = "margin-left: -15px; overflow-y: clip;",
+      leafletOutput("Map", height = "100vh", width = "100%"),
       uiOutput("TableText", style = "font-size: 15px; margin-left: 5px; position:relative; z-index: 500; font-style: italic; margin-top: 5px;"),
       reactable_extras_ui("table"),
       width = 8
@@ -122,16 +124,21 @@ tx_raw <- aws.s3::s3read_using(st_read,
                          object = "state-drinking-water/TX/clean/app/app_test_data_simplified.geojson",
                          bucket = "tech-team-data")
 
+tx_counties <- aws.s3::s3read_using(st_read, 
+                                    object = "state-drinking-water/TX/clean/app/tx_counties_simplified_v2.geojson",
+                                    bucket = "tech-team-data")
+
+tx_regions <- aws.s3::s3read_using(st_read, 
+                                   object = "state-drinking-water/TX/clean/app/tx_regions_simplified.geojson",
+                                   bucket = "tech-team-data")
+
+tx_sab_super_simplified <- aws.s3::s3read_using(st_read, 
+                                    object = "state-drinking-water/TX/clean/app/tx_sab_super_simplified.geojson",
+                                    bucket = "tech-team-data")
+
 data_dict <- aws.s3::s3read_using(read.csv, 
                                object = "state-drinking-water/TX/clean/app/data_dict.csv",
                                bucket = "tech-team-data")
-### ET Added V
-# gs4_deauth()
-# URL <- "https://docs.google.com/spreadsheets/d/1bzNPxhL-l6DeGElhG1c70Of8DGAQasMDUuX3rPHVe2A/edit#gid=0"
-# data_dict <- read_sheet(URL, sheet = "var_names")
-
-
-### ET Added ^
 
 ################
 ### Variables ##
@@ -199,7 +206,9 @@ cont_choices <- cont_dict %>%
 observeEvent(ignoreInit = TRUE, 
              list(input$Bivariate, 
                   # this isolate prevents re rendering loop 
+                  input$Simplify,
                   isolate(Controller$data_select), 
+                  isolate(Controller$data),
                   input$VarOne, 
                   input$VarTwo, 
                   input$Geography, 
@@ -210,6 +219,21 @@ observeEvent(ignoreInit = TRUE,
 ## show spinner                                        
 show_spinner() 
 
+## Simplifying polygons                 
+if(input$Simplify == TRUE)
+{
+ Controller$data <- tx_raw %>%
+                    data.frame()%>%
+                    select(-c(geometry))%>%
+                    left_join(.,tx_sab_super_simplified)%>%
+                    st_as_sf()
+}
+else
+{
+ Controller$data <- tx_raw
+}
+
+## Main Catches and Geography Filter
 if(length(input$Geography) == 0 | input$VarOne == input$VarTwo) {
   showNotification(id = "notification", "Insufficient data selected or duplicate variables chosen, please change selection", type = "warning")
 } else {
@@ -268,7 +292,7 @@ if(length(input$Geography) == 0 | input$VarOne == input$VarTwo) {
     
     ## setting up leafletproxy 
     leaflet_proxy <- leafletProxy("Map") %>%
-      clearShapes() %>%
+      clearGroup("Sabs")%>%
       clearControls()
     
     if (input$Bivariate == TRUE) {
@@ -289,7 +313,8 @@ if(length(input$Geography) == 0 | input$VarOne == input$VarTwo) {
         addPolygons(data = Data,
                     label = ~label_text,
                     fillOpacity = 0,
-                    opacity = 0)
+                    opacity = 0,
+                    group = "Sabs")
     } else {
       ## Univariate plot
       colvar <- Data[[input$VarOne]]
@@ -304,7 +329,8 @@ if(length(input$Geography) == 0 | input$VarOne == input$VarTwo) {
                     fillColor = ~pal(colvar),
                     fillOpacity = .9,
                     weight = .75,
-                    color = "grey") %>%
+                    color = "grey",
+                    group = "Sabs") %>%
         addLegend(pal = pal, values = colvar, position = "bottomleft", title = data_dict %>% filter(var_name == !!(input$VarOne)) %>% pull(clean_name))
     }
   }
@@ -318,8 +344,11 @@ hide_spinner()
 # Observe for panel show/hides ##
 #################################
 
-observeEvent(input$Context, {
+observeEvent(ignoreInit = TRUE, input$Context, {
   toggle("Map", anim = FALSE,animType = "slide")
+})
+observeEvent(ignoreInit = TRUE, input$hideSidebar,{
+  toggle("sidebar", anim = FALSE,animType = "slide")
 })
 
 
@@ -330,8 +359,20 @@ observeEvent(input$Context, {
 ## Add UpdateLeaflet for data_select
 output$Map <- renderLeaflet({
   leaflet(options = leafletOptions(minZoom = 1, maxZoom = 12))%>%
-              addProviderTiles(providers$CartoDB.Positron, group = "Toner Lite")%>%
-              setView(-95.58292, 31.94214, zoom = 7)
+              addProviderTiles(providers$CartoDB.Positron, group = "Streets")%>%
+              addProviderTiles(providers$Esri.WorldImagery, group = "Topographic")%>%
+              addMapPane("base_polygons", zIndex = 200)%>%
+              addPolygons(data = tx_counties, fillColor = "grey", fillOpacity = .2, 
+                          weight = .7, color = "black", label = ~namelsad, group = "Counties",
+                          options = pathOptions(pane = "base_polygons"))%>%
+    addPolygons(data = tx_regions, fillColor = "grey", fillOpacity = .2, 
+                weight = .7, color = "black", label = ~label_2, group = "Regions",
+                options = pathOptions(pane = "base_polygons"))%>%
+              setView(-95.58292, 31.94214, zoom = 7)%>%
+              hideGroup("Counties")%>%
+              hideGroup("Regions")%>%
+              hideGroup("Topographic")%>%
+              addLayersControl(overlayGroups = c("Counties","Regions"), baseGroups =  c("Streets", "Topographic"))
 })
 
 
