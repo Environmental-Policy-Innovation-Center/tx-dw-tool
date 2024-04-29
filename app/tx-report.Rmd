@@ -1,28 +1,29 @@
 ---
 title: "Texas Drinking Water Application - Exported Report"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
-output: html_document
+output: pdf_document
 params:
   data_p: NULL
+  var_one: NULL
+  var_two: NULL
 ---
+
 ```{r setup, include=FALSE} 
 knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
 ```
 
-
 ```{r, echo = FALSE}
-library(knitr)
-library(tidyverse)
-library(leaflet)
+library(ggplot2)
+library(dplyr)
+library(sf)
 library(maps)
+library(knitr)
 data <- params$data_p
+v1 <- params$var_one
+v2 <- params$var_two
 tx_basemap <- map_data("county") %>%
   filter(region == "texas")
-
-if (identical(rmarkdown::metadata$runtime, "shiny"))
-  shiny::setProgress(0.5)  # set progress to 50%
 ```
-
 
 Report for: ``r length(unique(data$pwsid))`` water utility service area boundary(ies) located in ``r unique(data$regions)`` \
 
@@ -39,7 +40,4 @@ ggplot(data) +
            ylim =  c(as.numeric(zoom[2]), as.numeric(zoom[4]))) + 
   theme_minimal() + 
   labs(x = "Longitude", y = "Latitude")
-
-if (identical(rmarkdown::metadata$runtime, "shiny"))
-  shiny::setProgress(1)  # set progress to 100%
 ```
