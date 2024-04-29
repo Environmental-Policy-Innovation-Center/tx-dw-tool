@@ -10,6 +10,9 @@ RUN apt-get update && apt-get install -y \
     libproj-dev \
     libgdal-dev \
     libmagick++-dev \
+    texlive \
+    texlive-latex-extra \
+    texlive-fonts-extra \
     && rm -rf /var/lib/apt/lists/*
 
 RUN mkdir -p /home/epic
