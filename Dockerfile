@@ -45,7 +45,9 @@ RUN install2.r --error \
     tippy \
     httpuv \
     aws.ec2metadata \
-    remotes 
+    remotes \
+    promises \
+    future
 
 # Install the bivariatechoropleths package from GitHub
 RUN R -e "remotes::install_github('chris31415926535/bivariatechoropleths')"

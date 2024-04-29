@@ -1,0 +1,13 @@
+name: tx-app_test_v2
+title: tx-app_test_v2
+username: epic-tech
+account: epic-tech
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 11842424
+bundleId: 8532458
+url: https://epic-tech.shinyapps.io/tx-app_test_v2/
+version: 1
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: rds-testing.R|tx-report.Rmd
