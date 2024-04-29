@@ -38,19 +38,21 @@ RUN install2.r --error \
     purrr \
     shinyBS \
     rlang \
+    viridis \
     reactablefmtr \
     googlesheets4 \
     reactable.extras \
     tippy \
     httpuv \
     aws.ec2metadata \
-    remotes
+    remotes 
 
 # Install the bivariatechoropleths package from GitHub
 RUN R -e "remotes::install_github('chris31415926535/bivariatechoropleths')"
 
 # Copy the R script
 ADD app/tx-dw-tool-app.R /home/epic/
+ADD app/tx-report.Rmd /home/epic/
 
 # Expose ports
 EXPOSE 2000 2001

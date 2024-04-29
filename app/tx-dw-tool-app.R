@@ -29,6 +29,7 @@ library(reactablefmtr)
 library(googlesheets4)
 library(reactable.extras)
 library(tippy)
+library(viridis)
 
 
 ## TICKET LIST
@@ -120,10 +121,14 @@ server <- function(input, output) {
 tx_raw <- aws.s3::s3read_using(st_read, 
                          object = "state-drinking-water/TX/clean/app/app_test_data_simplified.geojson",
                          bucket = "tech-team-data")
+
+data_dict <- aws.s3::s3read_using(read.csv, 
+                               object = "state-drinking-water/TX/clean/app/data_dict.csv",
+                               bucket = "tech-team-data")
 ### ET Added V
-gs4_deauth()
-URL <- "https://docs.google.com/spreadsheets/d/1bzNPxhL-l6DeGElhG1c70Of8DGAQasMDUuX3rPHVe2A/edit#gid=0"
-data_dict <- read_sheet(URL, sheet = "var_names")
+# gs4_deauth()
+# URL <- "https://docs.google.com/spreadsheets/d/1bzNPxhL-l6DeGElhG1c70Of8DGAQasMDUuX3rPHVe2A/edit#gid=0"
+# data_dict <- read_sheet(URL, sheet = "var_names")
 
 
 ### ET Added ^
