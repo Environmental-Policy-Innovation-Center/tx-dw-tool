@@ -84,7 +84,7 @@ ui <- fluidPage(
           uiOutput("SelectCat", style = "line-height: 20px; margin-top: -10px; margin-bottom: -10px;"),  
           style = "primary"
         ),
-        uiOutput("SummaryStats", style = "margin-bottom: 10px; margin-top: -10px;w"),
+        uiOutput("SummaryStats", style = "margin-bottom: 10px; margin-top: -10px;"),
         uiOutput("VarOne", style = "width: 90%"), 
         plotlyOutput("VarOneHist", width = "350px", height = "125px"),
         uiOutput("VarTwo", style = "width: 90%; margin-top: 10px"), 
