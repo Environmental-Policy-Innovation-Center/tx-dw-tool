@@ -84,7 +84,7 @@ ui <- fluidPage(
           uiOutput("SelectCat", style = "line-height: 20px; margin-top: -10px; margin-bottom: -10px;"),  
           style = "primary"
         ),
-        uiOutput("SummaryStats", style = "margin-bottom: 10px; margin-top: -10px;"),
+        uiOutput("SummaryStats", style = "margin-bottom: 10px; margin-top: -10px;w"),
         uiOutput("VarOne", style = "width: 90%"), 
         plotlyOutput("VarOneHist", width = "350px", height = "125px"),
         uiOutput("VarTwo", style = "width: 90%; margin-top: 10px"), 
@@ -131,28 +131,33 @@ server <- function(input, output) {
 ### Data Import #### 
 #################### 
 ## TO DO: Move this to the .RMD and return 1 object with 2 dataframes 
+
 tx_raw <- aws.s3::s3read_using(st_read, 
                          object = "state-drinking-water/TX/clean/app/app_test_data_simplified.geojson",
-                         bucket = "tech-team-data")
+                         bucket = "tech-team-data", 
+                         quiet = TRUE)
 
 tx_counties <- aws.s3::s3read_using(st_read, 
                                     object = "state-drinking-water/TX/clean/app/tx_counties_simplified_v2.geojson",
-                                    bucket = "tech-team-data")
+                                    bucket = "tech-team-data",
+                                    quiet = TRUE)
 
 tx_regions <- aws.s3::s3read_using(st_read, 
                                    object = "state-drinking-water/TX/clean/app/tx_regions_simplified.geojson",
-                                   bucket = "tech-team-data")
+                                   bucket = "tech-team-data",
+                                   quiet = TRUE)
 
 tx_sab_super_simplified <- aws.s3::s3read_using(st_read, 
                                     object = "state-drinking-water/TX/clean/app/tx_sab_super_simplified.geojson",
-                                    bucket = "tech-team-data")
+                                    bucket = "tech-team-data",
+                                    quiet = TRUE)
 
-data_dict <- aws.s3::s3read_using(read.csv, 
+suppressMessages({data_dict <- aws.s3::s3read_using(read.csv, 
                                object = "state-drinking-water/TX/clean/app/data_dict.csv",
-                               bucket = "tech-team-data")
+                               bucket = "tech-team-data")})
 
-report <- aws.s3::s3read_using(readLines,object = "state-drinking-water/TX/clean/app/tx-report.Rmd",
-                                  bucket = "tech-team-data")
+suppressWarnings({report <- aws.s3::s3read_using(readLines,object = "state-drinking-water/TX/clean/app/tx-report.Rmd",
+                                  bucket = "tech-team-data")})
 
 ################
 ### Variables ##
@@ -353,7 +358,7 @@ if(length(input$Geography) == 0 | input$VarOne == input$VarTwo) {
   }
 }
 #print(Sys.time() -start )
-#Sys.sleep(.05) 
+Sys.sleep(.05)
 hide_spinner()
 })
 
@@ -375,8 +380,6 @@ observeEvent(ignoreInit = TRUE, input$hideSidebar,{
 ################
 #### Map #######
 ################
-## TO DO 
-## Add UpdateLeaflet for data_select
 output$Map <- renderLeaflet({
   leaflet(options = leafletOptions(minZoom = 1, maxZoom = 12))%>%
               addProviderTiles(providers$CartoDB.Positron, group = "Streets")%>%
@@ -402,9 +405,6 @@ output$Map <- renderLeaflet({
 ################
 
 ## Geography Filter ##
-## To DO: 
-## Add regions (.rmd)
-## Add missing counties (.rmd)
 output$SelectGeography <- renderUI({
   GeoChoices <- list()
   
@@ -433,6 +433,7 @@ generateCheckboxGroupInput <- function(inputId, label, choices, selected) {
 }
 
 output$SelectCat <- renderUI({
+  req(Controller$data_select)
   inputIds <- cat_dict$var_name
   
   checkbox_inputs <- mapply(function(col, lab, inputId) {
@@ -645,7 +646,11 @@ output$Report <- downloadHandler(
       temp_dir <- tempdir()
       owd <- setwd(temp_dir)
       on.exit(setwd(owd))
+      
       temp_rmd <- file.path(tempdir(), "tx-report.Rmd")
+      
+      Sys.sleep(1)
+      
       writeLines(report, temp_rmd)
       params <- list(data_p = Controller$data_select,
                      var_one = input$VarOne,
