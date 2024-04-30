@@ -3,7 +3,9 @@ title: "Texas Drinking Water Application - Exported Report"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: html_document
 params:
-  dataset: tx_raw
+  data_p: NULL
+  var_one: NULL
+  var_two: NULL
 ---
 
 ```{r setup, include=FALSE} 
@@ -11,28 +13,65 @@ knitr::opts_chunk$set(warning = FALSE, message = FALSE)
 ```
 
 ```{r, echo = FALSE}
-library(knitr)
-library(tidyverse)
-library(leaflet)
+library(ggplot2)
+library(dplyr)
+library(sf)
 library(maps)
-data <- params$dataset
+library(knitr)
+data <- params$data_p
+v1 <- params$var_one
+v2 <- params$var_two
 tx_basemap <- map_data("county") %>%
   filter(region == "texas")
 ```
 
+
+<h4>
 Report for: ``r length(unique(data$pwsid))`` water utility service area boundary(ies) located in ``r unique(data$regions)`` \
+</h4>
+
+<b>Population served: </b> ``r round(sum(data$estimate_total_pop, na.rm = T), 0)``\
+<b>Estimate Median Household Income:</b> \$``r round(mean(data$estimate_mhi, na.rm = T), 0) ``\
+<b>Estimate Percent Person of Color: </b>``r round(mean(data$estimate_poc_alone_per, na.rm = T), 0)``%\
+<br />
+
 
 Map of utilities selected: \
 ```{r, echo = FALSE}
 # finding zoom boundaries: 
 zoom <- st_bbox(data)
+
 ggplot(data) + 
   geom_polygon(data = tx_basemap, 
-               aes(x = long, y = lat, group = group),
+               aes(x = long, y = lat, group = group), 
                color = "grey60", fill = "grey") +   
-  geom_sf(color = "darkred") + 
+  geom_sf() +
   coord_sf(xlim = c(as.numeric(zoom[1]), as.numeric(zoom[3])), 
            ylim =  c(as.numeric(zoom[2]), as.numeric(zoom[4]))) + 
   theme_minimal() + 
   labs(x = "Longitude", y = "Latitude")
 ```
+<br />
+<br />
+<br />
+
+<h3> Histogram of Variables: </h3> \
+Mean: ``r round(mean(data[[var_1]], na.rm = T), 0)``\
+Median: ``r  round(median(data[[var_1]], na.rm = T), 0)``\
+<div>
+```{r, echo = FALSE}
+mean_df <- mean(data[[var_1]], na.rm = T)
+median <- median(data[[var_1]], na.rm = T)
+
+ggplot(data, 
+       aes(x = eval(sym(var_1)))) +
+  geom_histogram() + 
+  labs(x = sym(var_1)) + 
+  theme_minimal() + 
+  geom_vline(xintercept = mean_df, lty = "dashed") + 
+  geom_vline(xintercept = median, lty = "dashed", color = "red")
+
+if (identical(rmarkdown::metadata$runtime, "shiny"))
+  shiny::setProgress(1)  # set progress to 100%
+```
+</div>

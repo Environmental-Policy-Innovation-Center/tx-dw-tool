@@ -135,6 +135,117 @@ pwsid_regions <- aws.s3::s3read_using(read.csv,
 # there's one less pwsid because it's over the border in AK (Texarkana region)
 ```
 
+## Adding extra datasets to the application: 
+```{r}
+# want to add: bwn, water shortages, dwsrf analysis, water rates, and CVI
+# pulling associated data lists: 
+wds <- aws.s3::s3read_using(readRDS, 
+                            object = "s3://tech-team-data/state-drinking-water/TX/clean/TX_water_delivery_list.RData")
+fin <- aws.s3::s3read_using(readRDS, 
+                            object = "s3://tech-team-data/state-drinking-water/TX/clean/TX_financial_list.RData")
+
+bwn <- wds$bwn_f2
+bwn_f1 <- wds$bwn_f1
+shortages <- wds$water_restrictions 
+dw_srf <- fin$TX_DWSRF_Analysis %>%
+  filter(state == "Texas") %>%
+  filter(pwsid != "")
+rates <- fin$TX_affordability_DAC
+cvi <- demo$cvi
+
+# skeleton dataframe of pwsids: 
+pwsids <- demo$census %>% as.data.frame() %>% select(pwsid)
+
+# Rates: ######################################################################
+rates$total_water_sewer <- rates$total_water_year + rates$total_sewer_year
+pwsid_rates <- rates %>% 
+  as.data.frame() %>%
+  select(pwsid, total_water_sewer)
+
+extra_vars <- merge(pwsids, pwsid_rates, by = "pwsid", all.x = T)
+
+# CVI: ########################################################################
+cvi_tidy <- demo$cvi %>%
+  select(-X) %>%
+  rename(census_tract = fips_code)
+
+# translate 2010 tract IDs to 2020 tract IDs: 
+tract_2010_2020_crosswalk <- read.table("https://www2.census.gov/geo/docs/maps-data/data/rel2020/tract/tab20_tract20_tract10_natl.txt", 
+                                        sep = "|", header = TRUE)
+
+cvi_crosswalk <- merge(cvi_tidy, tract_2010_2020_crosswalk, 
+                       by.x = "census_tract", 
+                       by.y = "GEOID_TRACT_10", all.x = TRUE)
+
+# grab tract geographies: 
+tract_geo <- tidycensus::get_acs(
+  geography = "tract", 
+  variables = c(total_pop = "B01003_001"), 
+  state = c("TX"), 
+  year = 2020,
+  geometry = TRUE
+)
+
+cvi_tidy_final <- merge(tract_geo, cvi_crosswalk, by.x = "GEOID", by.y = "GEOID_TRACT_20", all.y = T)
+
+# using areal weighted interpolation to calculate the weighted mean CVI
+cvi_geo <- cvi_tidy_final %>%
+  st_as_sf() %>%
+  st_transform(., crs = "ESRI:102296") 
+
+census_sf <- demo$census %>%
+  st_transform(., crs = "ESRI:102296") %>%  
+  filter(!st_is_empty(.))%>%
+  select(pwsid, geometry)
+
+interpolate <- areal::aw_interpolate(census_sf, tid="pwsid", 
+                                     source=cvi_geo, 
+                                     sid="census_tract", 
+                                     weight = "sum",
+                                     output="sf",
+                                     intensive=c("overall_cvi_score"))
+
+cvi_weighted <- interpolate %>%
+  rename(cvi_weighted_score = overall_cvi_score) %>% 
+  as.data.frame() %>%
+  select(pwsid, cvi_weighted_score)
+
+# updating extra var dataset: 
+extra_vars <- merge(extra_vars, cvi_weighted, all.x = T)
+
+# Limited Water Use ############################################################
+limited_water_use <- shortages %>%
+  group_by(pwsid) %>%
+  summarize(limited_water_use = length(unique(date_notified)))
+
+extra_vars <- merge(extra_vars, limited_water_use, all.x = T) %>%
+  # these are true zeroes: 
+  mutate(limited_water_use = case_when(is.na(limited_water_use) ~ 0, 
+                                       TRUE ~ limited_water_use))
+
+# DW SRFs #####################################################################
+dw_srf_simple <- dw_srf %>% 
+  group_by(pwsid) %>%
+  summarize(dwsrf_times_funded = n(),
+            dwsrf_total_assistance = sum(assistance_amt),
+            dwsrf_total_pf = sum(prin_forgive_amt),
+            dwsrf_median_assistance = median(assistance_amt)) 
+
+extra_vars_final <- merge(extra_vars, dw_srf_simple, all.x = T) %>%
+  mutate(dwsrf_times_funded = case_when(is.na(dwsrf_times_funded) ~ 0, 
+    TRUE ~ dwsrf_times_funded))
+
+
+# Boil Water Notices: ##########################################################
+# WORK IN PROGRESS: 
+head(bwn)
+bwn_tidy <- bwn %>%
+  rename(pwsid = pws_id) 
+
+bwn_tidy$updtts <- as.Date(bwn_tidy$updtts, tryFormats = c("%Y-%m-%d"))
+
+
+```
 
 ## Joining to simplified GeoJson for quicker load times on app
 ## Joining Regions 
@@ -144,8 +255,8 @@ app_test_df_simplified <- app_test_df %>%
                     data.frame()%>%
                     select(-c(geometry))%>%
                     left_join(.,tx_sab_simplified)%>%
-                    left_join(.,pwsid_regions)
-
+                    left_join(.,pwsid_regions) %>%
+  left_join(., extra_vars_final, by = "pwsid")
 ```
 ## Saving test data to s3: 
 ```{r}
@@ -159,6 +270,7 @@ put_object(
   acl = "public-read"
 )
 ```
+
 ```{r}
 filename <- "data_dict.csv"
 fwrite(data_dict, file.path(tempdir(), filename))
@@ -169,6 +281,5 @@ put_object(
   bucket = "tech-team-data",
   acl = "public-read"
 )
-
 ```
 
