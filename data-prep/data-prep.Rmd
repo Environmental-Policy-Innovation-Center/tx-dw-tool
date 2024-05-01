@@ -16,6 +16,7 @@ output: html_document
 library(tidyverse)
 library(aws.s3)
 library(sf)
+library(data.table)
 ```
 
 ## Data lists
