@@ -147,7 +147,7 @@ server <- function(input, output) {
   ## TO DO: Move this to the .RMD and return 1 object with 2 dataframes 
   
   tx_raw <- aws.s3::s3read_using(st_read, 
-                                 object = "state-drinking-water/TX/clean/app/app_test_data_simplified.geojson",
+                                 object = "state-drinking-water/TX/clean/app/app_test_data_simplified_v2.geojson",
                                  bucket = "tech-team-data", 
                                  quiet = TRUE)
   
@@ -167,10 +167,10 @@ server <- function(input, output) {
                                                   quiet = TRUE)
   
   suppressMessages({data_dict <- aws.s3::s3read_using(read.csv, 
-                                                      object = "state-drinking-water/TX/clean/app/data_dict.csv",
+                                                      object = "state-drinking-water/TX/clean/app/data_dict_v2.csv",
                                                       bucket = "tech-team-data")})
   
-  suppressWarnings({report <- aws.s3::s3read_using(readLines,object = "state-drinking-water/TX/clean/app/tx-report.Rmd",
+  suppressWarnings({report <- aws.s3::s3read_using(readLines,object = "state-drinking-water/TX/clean/app/tx-report_v2.Rmd",
                                                    bucket = "tech-team-data")})
   ################
   ### Variables ##

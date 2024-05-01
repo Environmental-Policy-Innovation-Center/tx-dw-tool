@@ -49,13 +49,25 @@ owner_type_merge <- data.frame(owner_type_code,owner_type_description)
 
 analysis_keys <- keys$analysis_keys 
 sabs <- demo$census %>%
-        mutate(pop_catagories = ifelse(estimate_total_pop > 0, "Very Small 0-1k", "Very Small (0 - 1,000)"))%>%
-        mutate(pop_catagories = ifelse(estimate_total_pop >= 1001, "Small 1k-3.3k", pop_catagories))%>%
-        mutate(pop_catagories = ifelse(estimate_total_pop >= 3301, "Medium 3.3k-10k", pop_catagories))%>%
-        mutate(pop_catagories = ifelse(estimate_total_pop >= 10001, "Large 10k-100k", pop_catagories))%>%
-        mutate(pop_catagories = ifelse(estimate_total_pop > 100000, "Very Large 100k+", pop_catagories))%>%
-        left_join(owner_type_merge)%>%
+  mutate(pop_catagories = ifelse(estimate_total_pop > 0, "Very Small 0-1k", "Very Small (0 - 1,000)"))%>%
+  mutate(pop_catagories = ifelse(estimate_total_pop >= 1001, "Small 1k-3.3k", pop_catagories))%>%
+  mutate(pop_catagories = ifelse(estimate_total_pop >= 3301, "Medium 3.3k-10k", pop_catagories))%>%
+  mutate(pop_catagories = ifelse(estimate_total_pop >= 10001, "Large 10k-100k", pop_catagories))%>%
+  mutate(pop_catagories = ifelse(estimate_total_pop > 100000, "Very Large 100k+", pop_catagories))%>%
+  # creating more human-readable source type codes: 
+  mutate(primary_source_code = case_when(primary_source_code == "SWP" ~ "Surface Water - Purchased", 
+                                         primary_source_code == "GW" ~ "Groundwater", 
+                                         primary_source_code == "SW" ~ "Surface Water", 
+                                         primary_source_code == "GWP" ~ "Groundwater - Purchased", 
+                                         primary_source_code == "GU" ~ "Groundwater Influenced by Surface Water")) %>%
+  left_join(owner_type_merge)%>%
   select(pwsid, pws_name, county_served, area_miles, pop_density, estimate_total_pop,
+         # grabbing all races
+         estimate_white_alone_per:estimate_mixed_alone_per, 
+         # grabbing age < 5
+         estimate_ageunder_5_per,
+         # grabbing education categories 
+         estimate_bachelors_per:estimate_prof_degree_per,
          estimate_hisp_alone_per, estimate_laborforce_unemployed_per, 
          estimate_hh_below_pov_per, pop_catagories,owner_type_description,primary_source_code, tier) %>%
   as.data.frame() %>%
@@ -73,28 +85,28 @@ app_test_df <- analysis_keys %>%
 ## Adding TX regions: 
 ```{r}
 # script for pulling TX regions: 
-file_loc <- "./data-prep/TX_regions"
-download.file("https://www.twdb.texas.gov/mapping/gisdata/doc/RWPA_Shapefile.zip", 
-              destfile = paste0(file_loc, ".zip"))
-unzip(zipfile = paste0(file_loc, ".zip"), exdir = file_loc) 
-file.remove(paste0(file_loc, ".zip"))
+# file_loc <- "./data-prep/TX_regions"
+# download.file("https://www.twdb.texas.gov/mapping/gisdata/doc/RWPA_Shapefile.zip", 
+#               destfile = paste0(file_loc, ".zip"))
+# unzip(zipfile = paste0(file_loc, ".zip"), exdir = file_loc) 
+# file.remove(paste0(file_loc, ".zip"))
 
 # grabbing region boundaries 
 ## EmmaLi - can you put this file in an S3 bucket to preserve code runnability? 
-region_boundaries <- st_read(paste0(file_loc, "/TWDB_RWPAs_2014.shp")) %>%
-  janitor::clean_names() %>%
-  st_transform('+proj=longlat +datum=WGS84')
-
-# saving region boundaries to s3: 
-tmp <- tempfile()
-st_write(region_boundaries, dsn = paste0(tmp, ".geojson"))
-on.exit(unlink(tmp))
-put_object(
-  file = paste0(tmp, ".geojson"),
-  object = "/state-drinking-water/TX/clean/app/TX_regions.geojson",
-  bucket = "tech-team-data",
-  acl = "public-read"
-)
+# region_boundaries <- st_read(paste0(file_loc, "/TWDB_RWPAs_2014.shp")) %>%
+#   janitor::clean_names() %>%
+#   st_transform('+proj=longlat +datum=WGS84')
+# 
+# # saving region boundaries to s3: 
+# tmp <- tempfile()
+# st_write(region_boundaries, dsn = paste0(tmp, ".geojson"))
+# on.exit(unlink(tmp))
+# put_object(
+#   file = paste0(tmp, ".geojson"),
+#   object = "/state-drinking-water/TX/clean/app/TX_regions.geojson",
+#   bucket = "tech-team-data",
+#   acl = "public-read"
+# )
 
 # reading region boundaries from s3: 
 region_boundaries <- aws.s3::s3read_using(st_read, 
@@ -146,7 +158,6 @@ fin <- aws.s3::s3read_using(readRDS,
                             object = "s3://tech-team-data/state-drinking-water/TX/clean/TX_financial_list.RData")
 
 bwn <- wds$bwn_f2
-bwn_f1 <- wds$bwn_f1
 shortages <- wds$water_restrictions 
 dw_srf <- fin$TX_DWSRF_Analysis %>%
   filter(state == "Texas") %>%
@@ -215,10 +226,21 @@ cvi_weighted <- interpolate %>%
 extra_vars <- merge(extra_vars, cvi_weighted, all.x = T)
 
 # Limited Water Use ############################################################
-limited_water_use <- shortages %>%
+# adding data from previous webscrape (which includes 2023 data)
+old_shortages <- aws.s3::s3read_using(read.csv, 
+                                      object = "s3://tech-team-data/state-drinking-water/TX/raw/TX_water_restrictions.csv") %>%
+  select(-X) %>%
+  mutate(date_notified = as.Date(date_notified, tryFormats = c("%Y-%m-%d")))
+
+# can confirm that they don't overlap, so we can safely rbind: 
+all_shortages <- rbind(old_shortages, shortages)
+
+# grabbing summary stats for pwsids: 
+limited_water_use <- all_shortages %>%
   group_by(pwsid) %>%
   summarize(limited_water_use = length(unique(date_notified)))
 
+# merging with datset: 
 extra_vars <- merge(extra_vars, limited_water_use, all.x = T) %>%
   # these are true zeroes: 
   mutate(limited_water_use = case_when(is.na(limited_water_use) ~ 0, 
@@ -232,19 +254,146 @@ dw_srf_simple <- dw_srf %>%
             dwsrf_total_pf = sum(prin_forgive_amt),
             dwsrf_median_assistance = median(assistance_amt)) 
 
-extra_vars_final <- merge(extra_vars, dw_srf_simple, all.x = T) %>%
+extra_vars <- merge(extra_vars, dw_srf_simple, all.x = T) %>%
   mutate(dwsrf_times_funded = case_when(is.na(dwsrf_times_funded) ~ 0, 
     TRUE ~ dwsrf_times_funded))
-
 
 # Boil Water Notices: ##########################################################
 # WORK IN PROGRESS: 
 head(bwn)
 bwn_tidy <- bwn %>%
-  rename(pwsid = pws_id) 
+  rename(pwsid = pws_id) %>%
+  mutate(updtts = as.Date(updtts, tryFormats = c("%Y-%m-%d")), 
+         reported_date = openxlsx::convertToDate(reported_date),
+         achieved_date = openxlsx::convertToDate(achieved_date)) %>%
+  # removing this date - presumably a human error since this hasn't occurred yet
+  filter(reported_date != "2024-12-27")
 
-bwn_tidy$updtts <- as.Date(bwn_tidy$updtts, tryFormats = c("%Y-%m-%d"))
+# total of UNIQUE reported bwn dates for each pwsid since 2018
+bwn_tidy_pwsid <- bwn_tidy %>%
+  group_by(pwsid) %>%
+  summarize(total_bwn = length(unique(reported_date)))
 
+extra_vars_v1 <- merge(extra_vars, bwn_tidy_pwsid, all.x = T) %>%
+  mutate(total_bwn = case_when(is.na(total_bwn) ~ 0, 
+                               TRUE ~ total_bwn))
+
+# EJ screen - proximity to water hazards #######################################
+# grabbing data from EJ screen: 
+ejscreen <- demo$ejscreen %>%
+  select(-X)
+
+# Superfund sites (NPL), risk management plan (RMP) proximity, 
+# haz waste (TSDF and LQGs) proximity, underground storage tanks (UST), 
+# and waste water discharges indicator 
+water_haz <- ejscreen %>%
+  select(oid, id, pnpl, prmp, ptsdf, ust, pwdis) %>%
+  rename(superfund = pnpl, 
+         rmp = prmp, 
+         haz_waste = ptsdf, 
+         storage_tanks = ust, 
+         waste_discharge = pwdis)
+
+# need census tract geographies for areal interpolation:  
+tract_geo <- tidycensus::get_acs(
+  geography = "tract", 
+  variables = c(total_pop = "B01003_001"), 
+  state = c("TX"), 
+  year = 2020,
+  geometry = TRUE
+)
+
+ejscreen_geo <- merge(water_haz, tract_geo, by.x = "id", by.y = "GEOID")
+
+# using areal interpolation to calculate mean proximity to water hazards: 
+ejscreen_geo <- ejscreen_geo %>%
+  st_as_sf() %>%
+  st_transform(., crs = "ESRI:102296") 
+
+census_sf <- demo$census %>%
+  st_transform(., crs = "ESRI:102296") %>%  
+  filter(!st_is_empty(.))%>%
+  select(pwsid, geometry)
+
+interpolate <- areal::aw_interpolate(census_sf, tid="pwsid", 
+                                     source=ejscreen_geo, 
+                                     sid="id", 
+                                     weight = "sum",
+                                     output="sf",
+                                     intensive=c("superfund", 
+                                                 "rmp", "haz_waste", 
+                                                 "storage_tanks",
+                                                 "waste_discharge"))
+
+# tidying names: 
+ej_inter_tidy <- interpolate %>%
+  as.data.frame() %>%
+  select(-geometry) 
+
+# adding to extra vars df: 
+extra_vars_v1 <- merge(extra_vars_v1, ej_inter_tidy, all.x = T) 
+
+# CEJST Disadvantaged Status ###################################################
+cejst <- demo$cejst
+
+# need census tract geographies: 
+tract_geo <- tidycensus::get_acs(
+  geography = "tract", 
+  variables = c(total_pop = "B01003_001"), 
+  state = c("TX"), 
+  year = 2020,
+  geometry = TRUE
+)
+
+# CEJST was made off of 2010 tract boundaries - will need to be crosswalked
+# for the crosswalk 
+tract_2010_2020_crosswalk <- read.table("https://www2.census.gov/geo/docs/maps-data/data/rel2020/tract/tab20_tract20_tract10_natl.txt", 
+                                        sep = "|", header = TRUE)
+
+full_crosswalk <- merge(tract_geo, tract_2010_2020_crosswalk, 
+                        by.x = "GEOID", 
+                        by.y = "GEOID_TRACT_20", all.x = TRUE)
+
+cejst_2020 <- merge(cejst, full_crosswalk, by.x = "census_tract_2010_id", 
+                    by.y = "GEOID_TRACT_10", 
+                    all.x = T) %>%
+  select(GEOID, NAME, 
+         total_threshold_criteria_exceeded:percentage_of_tract_that_is_disadvantaged_by_area, 
+         geometry)
+
+# using areal weighted interpolation to calculate the % of pwsid that 
+# is disadv by area and mean number of threshold criteria that were 
+# exceeded: 
+cejst_geo <- cejst_2020 %>%
+  st_as_sf() %>%
+  st_transform(., crs = "ESRI:102296") 
+
+census_sf <- demo$census %>%
+  st_transform(., crs = "ESRI:102296") %>%  
+  filter(!st_is_empty(.))%>%
+  select(pwsid, geometry)
+
+cejst_interpolate <- areal::aw_interpolate(census_sf, tid="pwsid", 
+                                           source=cejst_geo, 
+                                           sid="GEOID", 
+                                           weight = "sum",
+                                           output="sf", 
+                                           intensive=c("percentage_of_tract_that_is_disadvantaged_by_area", 
+                                                       "total_threshold_criteria_exceeded"))
+# renaming for clarity: 
+cejst_tidy <- cejst_interpolate %>%
+  as.data.frame() %>%
+  select(-geometry) %>%
+  rename(percent_disadv_cejst = percentage_of_tract_that_is_disadvantaged_by_area, 
+         mean_thresholds_exceeded_cejst = total_threshold_criteria_exceeded)
+
+# NOTE: some have 100% disadv status but 0 mean thresholds exceeded because: 
+# "In addition, a census tract that is completely surrounded by disadvantaged communities that meet the
+# burden thresholds—and is at or above the 50th percentile for low income—is also considered
+# disadvantaged." 
+
+# adding to extra vars df: 
+extra_vars_final <- merge(extra_vars_v1, cejst_tidy, all.x = T) 
 
 ```
 
@@ -253,12 +402,13 @@ bwn_tidy$updtts <- as.Date(bwn_tidy$updtts, tryFormats = c("%Y-%m-%d"))
 ## Simplified using Mapshapper.com - can likely automate this - went from 71.1mb to 11.5mb!
 ```{r}
 app_test_df_simplified <- app_test_df %>%
-                    data.frame()%>%
-                    select(-c(geometry))%>%
-                    left_join(.,tx_sab_simplified)%>%
-                    left_join(.,pwsid_regions) %>%
+  data.frame()%>%
+  select(-c(geometry))%>%
+  left_join(.,tx_sab_simplified)%>%
+  left_join(.,pwsid_regions) %>%
   left_join(., extra_vars_final, by = "pwsid")
 ```
+
 ## Saving test data to s3: 
 ```{r}
 tmp <- tempfile()
@@ -274,7 +424,7 @@ put_object(
 
 ```{r}
 filename <- "data_dict.csv"
-fwrite(data_dict, file.path(tempdir(), filename))
+data.table::fwrite(data_dict, file.path(tempdir(), filename))
 
 put_object(
   file = file.path(tempdir(), filename),
@@ -284,3 +434,15 @@ put_object(
 )
 ```
 
+```{r}
+# NOTE: just a quick chunk to update the RMD on S3 with local changes - not 
+# the best solution yet 
+filepath <- "./app/tx-report_v2.Rmd"
+
+put_object(
+  file = file.path(filepath),
+  object = "/state-drinking-water/TX/clean/app/tx-report_v2.Rmd",
+  bucket = "tech-team-data",
+  acl = "public-read"
+)
+```
