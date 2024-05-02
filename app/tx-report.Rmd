@@ -14,6 +14,10 @@ params:
 
 ```{r setup, include=FALSE} 
 knitr::opts_chunk$set(warning = FALSE, message = FALSE, tidy.opts = list(width.cutoff = 60), tidy = TRUE) 
+
+# TODO: 
+# - fix wrapping of county list 
+# - bivar color scale for mapping 
 ```
 
 ```{r, echo = FALSE}
@@ -46,7 +50,7 @@ clean_v2_name <- data_dict %>% filter(var_name == !!(v2)) %>% pull(clean_name)
 
 Summary report for: ``r length(unique(data$pwsid))`` water utility service area boundary(ies) located in ``r unique(unlist(str_split(data$regions, ",")))`` region(s) that serve ``r unique(data$county_served)`` county(ies)
 
-<b> Links to Methods & Data Dictionary </b>\
+<b> Links to Methods, Data Dictionary, and Repository </b>\
 [Methodology](https://docs.google.com/document/d/1va2Iq2oJxnqiwgNHD4bWpXKxdWbq-TYoYkosj1oz_JU/edit)\
 [Data Dictionary](https://docs.google.com/spreadsheets/d/1bzNPxhL-l6DeGElhG1c70Of8DGAQasMDUuX3rPHVe2A/edit#gid=0)\
 [Github Repository](https://github.com/Environmental-Policy-Innovation-Center/tx-dw-tool/tree/prod)\
@@ -166,6 +170,6 @@ ggplot(data,
 
 <b> Links to Extra Resources </b> \
 [Texas Commission on Environmental Quality](https://www.tceq.texas.gov/)\
-[Texas Water Development Board](https://www.twdb.texas.gov/index.asp)
+[Texas Water Development Board](https://www.twdb.texas.gov/index.asp)\
 [EPA's Safe Drinking Water Information System](https://www.epa.gov/enviro/sdwis-overview)\
 

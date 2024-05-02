@@ -41,21 +41,33 @@ library(tinytex)
 ### UI #### 
 ###########
 
-##### Reactable Table Code 
-
-
 #######
 
 ui <- fluidPage(
   
+  ## Global CSS alterations 
   tags$head(
     tags$style(
+      ## Spacing on selectize control and rounding corners on plotly chart 
       HTML("
       .selectize-control {
-        margin-top: -10px; /* Adjust this value as needed */
+        margin-top: -10px; 
       }
-      ")
-    )),
+      .main-svg {
+        border-radius: 5px; 
+      }
+      
+       .info-button {
+      position: absolute;
+      top: 5px;
+      right: 20px;
+      background-color: transparent;
+      border: none;
+      color: black;
+    }
+    ")
+    )
+  ),
   
   reactable_extras_dependency(),
   add_busy_spinner(spin = "fading-circle", position = "top-left"),
@@ -66,8 +78,9 @@ ui <- fluidPage(
       id ="sidebar",
       sidebarPanel(
         style = "position: fixed; height: 100%; width: 420px; overflow-y: auto; margin-left: -30px;", 
-        div(style = "display:inline-block; float:right"),
+        #  div(style = "display:inline-block; float:right"),
         width = 3,
+        actionButton("showInfo", "", icon(name = "circle-question", lib = "font-awesome", style = "font-size: 17px"), class = "info-button"), 
         uiOutput("SelectGeography", style = "width: 95%"), 
         bsCollapsePanel(
           div(
@@ -91,19 +104,20 @@ ui <- fluidPage(
         plotlyOutput("VarTwoHist", width = "350px", height = "125px"),
         actionButton("Context", "Table or Map",icon(name = "arrows-left-right", lib = "font-awesome"),
                      ## ET added margin-top v 
-                     style = "margin-bottom: 10px; ; margin-top: 10px;"), 
+                     style = "margin-bottom: 10px;; margin-top: 10px;"), 
         #   actionButton("hideSidebar", "Hide sidebar"),
         ### ET Added V
         downloadButton("Report", "Generate report",
-                       icon = icon("file-arrow-down", lib = "font-awesome"),
-                       style = "margin-bottom: 10px; margin-left: 10px; margin-top: 10px;"),
-        div(style = "display: inline-block; position: relative;",
+                       icon = icon("file-arrow-down", lib = "font-awesome")),
+        div(style = "display:inline-block",
             downloadButton("downloadData", "Download data"),
-            radioButtons("downloadType", "Download Type", 
-                         choices = c(".csv" = ".csv",
-                                     ".geojson" = ".geojson"),
-                         inline = TRUE),
-            
+            div(style = "margin-top:-15px",
+                radioButtons("downloadType", "", 
+                             choices = c(".csv" = ".csv",
+                                         ".geojson" = ".geojson"),
+                             inline = TRUE),
+                
+            ),
         ))
     ),
     mainPanel(
@@ -158,7 +172,6 @@ server <- function(input, output) {
   
   suppressWarnings({report <- aws.s3::s3read_using(readLines,object = "state-drinking-water/TX/clean/app/tx-report.Rmd",
                                                    bucket = "tech-team-data")})
-  
   ################
   ### Variables ##
   ################
@@ -260,8 +273,23 @@ server <- function(input, output) {
                       } else {
                         ## Filter data based on selected geography
                         if(!str_detect(paste(input$Geography, collapse = "|"), "All")) {
-                          Data <- Controller$data %>%
-                            filter(county_served %in% input$Geography | regions %in% input$Geography)
+                          
+                          selected_inputs <- unlist(str_split(input$Geography, ","))
+                          
+                          # Initialize a logical vector to store the filtering result
+                          filter_result <- logical(nrow(Controller$data))
+                          
+                          # Loop through each row
+                          for (i in 1:nrow(Controller$data)) {
+                            # Check if county_served or any region matches any of the selected inputs
+                            if (any(sapply(str_split(Controller$data$county_served[i], ",\\s*"), function(x) any(x %in% selected_inputs))) |
+                                any(sapply(str_split(Controller$data$regions[i], ",\\s*"), function(x) any(x %in% selected_inputs)))) {
+                              filter_result[i] <- TRUE
+                            }
+                          }
+                          # Filter the data
+                          Data <- Controller$data[filter_result, ]
+                          
                         } else {
                           Data <- Controller$data
                         }
@@ -413,12 +441,12 @@ server <- function(input, output) {
     tagList(
       tipify(el = icon(name = "map-location-dot", lib = "font-awesome", style = "font-size: 17px"), placement = "right", 
              title = HTML("Search or select a region defined by the Texas Water Development Board, or an individual county. Max selection size is five")),
-      HTML(paste("<b> Select a Geography: </b>")),
+      HTML(paste("<b> Geography: </b>")),
       selectizeInput("Geography","", choices = GeoChoices, selected = "I - East Texas", multiple = TRUE, options = list(maxItems = 5)),
       div(style = "display:flex; align-items: center; margin-top: -20px",
           tipify(el = icon(name = "draw-polygon", lib = "font-awesome", style = "font-size: 17px; margin-right: 5px;"), placement = "right",
                  title = HTML("On limited bandwith or plotting lots of data? Reduce the data quality for service area boundary geographies to improve rendering")),
-          HTML(paste("<b> Simplify Geographies </b>")),
+          HTML(paste("<b> Simplify: </b>")),
           HTML("&nbsp;"), # Adding a non-breaking space for spacing
           div(style = "margin-bottom: -12px; margin-right: -3px;",
               checkboxInput("Simplify", ""))
@@ -433,7 +461,7 @@ server <- function(input, output) {
   }
   
   output$SelectCat <- renderUI({
-    req(Controller$data_select)
+    #  req(Controller$data_select)
     inputIds <- cat_dict$var_name
     
     checkbox_inputs <- mapply(function(col, lab, inputId) {
@@ -477,14 +505,14 @@ server <- function(input, output) {
       div(style = "display:flex; align-items: center; margin-top: -10px",
           tipify(el = icon(name = "clone", lib = "font-awesome", style = "font-size: 17px; margin-right: 5px;"), placement = "right",
                  title = HTML("Map your primary variable against your secondary variable")),
-          HTML(paste("<b> Bivariate mapping </b>")),
+          HTML(paste("<b> Bivariate Mapping: </b>")),
           HTML("&nbsp;"), # Adding a non-breaking space for spacing
           div(style = "margin-bottom: -12px; margin-right: -3px;",
               checkboxInput("Bivariate", "", value = FALSE))
       ),
       tipify(el = icon(name = "chart-column", lib = "font-awesome", style = "color: #7ab3d1; font-size: 17px"), placement = "right", 
              title = HTML("Select a variable to modify the map and histogram below. You can define the variable range by clicking and dragging the histogram. Double click to reset.")),
-      HTML(paste("<b> Select a Primary Variable: </b>")),
+      HTML(paste("<b> Primary Variable: </b>")),
       selectizeInput("VarOne", "", choices = cont_choices, selected = "estimate_mhi", multiple = FALSE)
     )
     
@@ -503,10 +531,12 @@ server <- function(input, output) {
       pad = 5
     )
     
-    plot_ly(x =  Controller$data_select %>% pull(!!input$VarOne), type = "histogram", source = "a", nbinsx = 50, marker = list(color = "#7ab3d1") )%>% 
+    plot_ly(x =  Controller$data_select %>% pull(!!input$VarOne), 
+            type = "histogram", source = "a", 
+            nbinsx = 50, 
+            marker = list(color = "#7ab3d1", line = list(color = "black", width = 1)))%>% 
       config(displayModeBar = FALSE) %>%
       event_register("plotly_selected")%>%
-      # add_trace(x = density$x, y = density$y, type = "scatter", mode = "lines", fill = "tozeroy", yaxis = "y2", name = "Density") %>% 
       layout( dragmode = "select", margin = m)
   })
   
@@ -515,7 +545,7 @@ server <- function(input, output) {
     tagList(
       tipify(el = icon(name = "chart-column", lib = "font-awesome", style = "color: #dd7c8a; font-size: 17px;"), placement = "right",
              title = HTML("Select a variable to modify the utilities mapped and the histogram below. Click Bivariate to map this variable with your primary variable. You can define the variable range by clicking and dragging the histogram. Double click to reset.")),
-      HTML(paste("<b> Select a Secondary Variable: </b>")),
+      HTML(paste("<b> Secondary Variable: </b>")),
       selectInput("VarTwo", "", choices = cont_choices, selected = "healthbased_violations_5yr", multiple = FALSE)
     )
   })
@@ -532,7 +562,9 @@ server <- function(input, output) {
       pad = 5
     )
     
-    plot_ly(x =  Controller$data_select %>% pull(!!input$VarTwo), type = "histogram", source = "b", nbinsx = 50, marker = list(color = "#dd7c8a") )%>% 
+    plot_ly(x =  Controller$data_select %>% pull(!!input$VarTwo), type = "histogram", source = "b", 
+            nbinsx = 50, 
+            marker = list(color = "#dd7c8a", line = list(color = "black", width = 1)))%>% 
       config(displayModeBar = FALSE) %>%
       event_register("plotly_selected")%>%
       layout(dragmode = "select",  margin = m)
@@ -541,7 +573,6 @@ server <- function(input, output) {
   ################
   #### Table #####
   ################
-  ## ET ADDED v##
   output$TableText <- renderText({
     paste("Click a column to sort and slide a column to expand")
   })
@@ -675,6 +706,60 @@ server <- function(input, output) {
       )
     })
   })
+  
+  InfoModal <- modalDialog(
+    title = HTML("<b> Texas Community Water System Prioritization Tool - dev 1.0 </b>"),
+    HTML("<b> Quick Start: </b>"),
+    HTML("<br>"),
+    icon(name = "map-location-dot", lib = "font-awesome", style = "font-size: 17px"),
+    HTML("Search or select an area of choice from the Geography filter."),
+    HTML("<br>"),
+    icon(name = "filter", lib = "font-awesome", style = "font-size: 17px"),
+    HTML(" Click Filter by Categories to expand categorical filter options.  "),
+    HTML("<br>"),
+    icon(name = "chart-column", lib = "font-awesome", style = "size: 17px"),
+    HTML("Select a Primary and Secondary variable to map."),
+    HTML("<br>"),
+    HTML("Adjust data ranges by click and dragging the chart - double click to reset."),
+    HTML("<br>"),
+    icon(name = "clone", lib = "font-awesome", style = "font-size: 17px;"),
+    HTML(" Select Bivariate mapping to map both variables."),
+    HTML("<br>"),
+    icon(name = "arrows-left-right", lib = "font-awesome", style = "font-size: 17px;"),
+    HTML("Click Table or Map to toggle between the map and the table. "),
+    HTML("<br>"),
+    icon(name = "computer-mouse", lib = "font-awesome", style = "font-size: 17px;"),
+    HTML("Mouse over the application's icons to learn more!"),
+    HTML("<br>"),
+    HTML("<br>"),
+    HTML("<b> About and Uses: </b>"),
+    HTML("<br>"),
+    HTML("This application was developed to assist in prioritizing advocacy and technical assistance for community water systems in Texas. 
+         Known as a screening tool [link], the data and insights generated from this tool are to be taken in conjunction with research and local knowledge to inform outreach and not a sole source of information. 
+         This tool can be used to identify utilities based on a user determined set of characteristics. Keep in mind, these data are a small component of utility operations and drinking water user experience. Generally speaking, utilities are working to balance quality water, low rates, and financial stability, all while staying within regulatory compliance. 
+         This balancing act can be difficult for under-resourced utilities"),
+    HTML("<br>"),
+    HTML("<br>"),
+    HTML("<b> More Information and Feedback: </b>"),
+    HTML("<li> To learn more about how to use this tool, visit our vignettes [link].   </li>"),
+    HTML("<li> For documentation, methods, and reproducing this application, see our Github [link] </li>"),
+    HTML("<li> Downloading the complete dataset can be found here [link].  </li> "),
+    HTML("<li> To read our deep-dive report on East Texas, click here [link].  </li>"),
+    HTML("<li> Got feedback? Take our survey! [link] "),
+    HTML("<br>"),
+    HTML("<br>"),
+    HTML("<b> Attribution and License:  </b>"),
+    HTML("<br>"),
+    HTML("Developed in partnership with Mitchell and Temple foundations by Environmental Policy Innovation Center (EPIC). EPIC makes no assurances to the accuracy of the tools data. 
+         All underlying code, methods, and data are available at our Github under a Creative Commons License."),
+    easyClose = FALSE,
+    footer = modalButton("Close"),
+  )
+  
+  observeEvent(input$showInfo, ignoreNULL = FALSE,
+               {
+                 showModal(InfoModal)
+               })
   
   ################
   #### Report ####
