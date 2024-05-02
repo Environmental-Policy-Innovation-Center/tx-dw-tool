@@ -33,6 +33,7 @@ library(viridis)
 library(promises)
 library(future)
 library(tinytex)
+library(googledrive)
 
 
 ## TICKET LIST
@@ -689,7 +690,6 @@ server <- function(input, output) {
                 highlight = TRUE,
                 bordered = TRUE,
                 resizable = TRUE,
-                ###### ET v#######
                 showSortable = TRUE,
                 searchable = TRUE,
                 # adopted from this stock overflow question: https://stackoverflow.com/questions/74222616/change-search-bar-text-in-reactable-table-in-r
@@ -701,7 +701,6 @@ server <- function(input, output) {
                   pageNext = "\u276f",
                   pagePreviousLabel = "Previous page",
                   pageNextLabel = "Next page"),
-                ###### ET ^#######
                 defaultPageSize = 15,
       )
     })
@@ -764,8 +763,7 @@ server <- function(input, output) {
   ################
   #### Report ####
   ################
-  ### ET ADDED V ####
-  
+
   # code for report adopted from: https://shiny.posit.co/r/articles/build/generating-reports/
   output$Report <- downloadHandler(
     
@@ -794,23 +792,61 @@ server <- function(input, output) {
       })
     })
   
-  # download handler: 
-  output$downloadData <- downloadHandler(
-    filename = function() {
-      paste0("data", input$downloadType)
-    },
-    content = function(file) {
-      if(input$downloadType == ".csv") {
-        csv_data <- Controller$data_select %>% 
-          as.data.frame() %>%
-          select(-"geometry")
-        write.csv(csv_data, 
-                  file, row.names = FALSE)
-      } else if(input$downloadType == ".geojson") {
-        st_write(Controller$data_select, file)
-      }
-    })  
-}
+# download handler: 
+output$downloadData <- downloadHandler(
+  
+  filename = "tx-dw-app.zip",
+  
+  content = function(file) {
+    
+    drive_deauth()
+     
+    # add data dictionary: 
+    dictionary_csv <- drive_download("https://docs.google.com/spreadsheets/d/1bzNPxhL-l6DeGElhG1c70Of8DGAQasMDUuX3rPHVe2A/edit#gid=0", 
+                                     file.path(tempdir(), "tx-app-data-dictionary.csv"), overwrite = TRUE)
+    
+    # add methods doc: 
+    methods_doc <- drive_download("https://docs.google.com/document/d/1va2Iq2oJxnqiwgNHD4bWpXKxdWbq-TYoYkosj1oz_JU/edit", 
+                                   file.path(tempdir(),"tx-app-data-dictionary.docx"), overwrite = TRUE)
+    
+    # if statement to handle different file formats: 
+    if(input$downloadType == ".csv") {
+      # grabbing the selected data: 
+      csv_data <- Controller$data_select %>% 
+        as.data.frame() %>%
+        select(-"geometry")
+      write.csv(csv_data, 
+                file.path(tempdir(), "tx-app-selected-data.csv"), 
+                row.names = FALSE)
+      data_path_selected <- file.path(tempdir(), "tx-app-selected-data.csv")
+      
+      # grabbing the full dataset: 
+      tx_raw_data <- tx_raw %>%
+        as.data.frame() %>%
+        select(-"geometry")
+      write.csv(tx_raw_data, 
+                file.path(tempdir(), "tx-app-full-data.csv"), 
+                row.names = FALSE)
+      data_path_full <- file.path(tempdir(), "tx-app-full-data.csv")
+      
+    } else if(input$downloadType == ".geojson") {
+      # grabbing the selected data: 
+      st_write(Controller$data_select, file.path(tempdir(), "tx-app-selected-data.geojson"), delete_layer = TRUE)
+      data_path_selected <- file.path(tempdir(), "tx-app-selected-data.geojson")
+      
+      # grabbing the full dataset: 
+      st_write(tx_raw, file.path(tempdir(), "tx-app-full-data.geojson"), delete_layer = TRUE)
+      data_path_full <- file.path(tempdir(), "tx-app-full-data.geojson")
+    }
+    
+    # zippin' it up!
+    zip::zip(file, files = c(file.path(tempdir(), "tx-app-data-dictionary.csv"),
+                             file.path(tempdir(),"tx-app-data-dictionary.docx"),
+                             data_path_selected, 
+                             data_path_full),
+             mode = "cherry-pick")
+  })
 
+}
 # Run the application 
 shinyApp(ui = ui, server = server)
