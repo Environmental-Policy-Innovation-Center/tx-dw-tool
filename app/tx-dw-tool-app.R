@@ -156,7 +156,7 @@ server <- function(input, output) {
                                                       object = "state-drinking-water/TX/clean/app/data_dict_v2.csv",
                                                       bucket = "tech-team-data")})
   
-  suppressWarnings({report <- aws.s3::s3read_using(readLines,object = "state-drinking-water/TX/clean/app/tx-report_v2.Rmd",
+  suppressWarnings({report <- aws.s3::s3read_using(readLines,object = "state-drinking-water/TX/clean/app/tx-report.Rmd",
                                                    bucket = "tech-team-data")})
   
   ################
@@ -684,7 +684,7 @@ server <- function(input, output) {
   # code for report adopted from: https://shiny.posit.co/r/articles/build/generating-reports/
   output$Report <- downloadHandler(
     
-    filename = "Report.pdf",
+    filename = "Report.html",
     content = function(file_n) {
       withProgress(message = 'Rendering, please wait!', {
         # this downloads - need to figure out how to add it to the params

@@ -437,11 +437,11 @@ put_object(
 ```{r}
 # NOTE: just a quick chunk to update the RMD on S3 with local changes - not 
 # the best solution yet 
-filepath <- "./app/tx-report_v2.Rmd"
+filepath <- "./app/tx-report.Rmd"
 
 put_object(
   file = file.path(filepath),
-  object = "/state-drinking-water/TX/clean/app/tx-report_v2.Rmd",
+  object = "/state-drinking-water/TX/clean/app/tx-report.Rmd",
   bucket = "tech-team-data",
   acl = "public-read"
 )
