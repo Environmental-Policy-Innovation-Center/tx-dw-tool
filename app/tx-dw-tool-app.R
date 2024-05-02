@@ -51,7 +51,9 @@ ui <- fluidPage(
       ## Spacing on selectize control and rounding corners on plotly chart 
       HTML("
       .selectize-control {
-        margin-top: -10px; 
+        margin-top: -20px; 
+        margin-bottom: -20px;
+        margin-left: -2px;
       }
       .main-svg {
         border-radius: 5px; 
@@ -64,7 +66,8 @@ ui <- fluidPage(
       background-color: transparent;
       border: none;
       color: black;
-    }
+       }
+    
     ")
     )
   ),
@@ -99,8 +102,10 @@ ui <- fluidPage(
         ),
         uiOutput("SummaryStats", style = "margin-bottom: 10px; margin-top: -10px;"),
         uiOutput("VarOne", style = "width: 90%"), 
+        uiOutput("VarOneMinMax"),
         plotlyOutput("VarOneHist", width = "350px", height = "125px"),
         uiOutput("VarTwo", style = "width: 90%; margin-top: 10px"), 
+        uiOutput("VarTwoMinMax"),
         plotlyOutput("VarTwoHist", width = "350px", height = "125px"),
         actionButton("Context", "Table or Map",icon(name = "arrows-left-right", lib = "font-awesome"),
                      ## ET added margin-top v 
@@ -115,7 +120,7 @@ ui <- fluidPage(
             radioButtons("downloadType", "", 
                          choices = c(".csv" = ".csv",
                                      ".geojson" = ".geojson"),
-                         inline = TRUE),
+                         inline = TRUE)
             
         ),
         ))
@@ -139,7 +144,7 @@ ui <- fluidPage(
 ################
 #### SERVER #### 
 ################
-server <- function(input, output) {
+server <- function(input, output, session) {
   
   #################### 
   ### Data Import #### 
@@ -201,6 +206,7 @@ server <- function(input, output) {
   ## poltly chart events
   event_one <- reactive(event_data(event = "plotly_selected", source = "a", priority = "event"))
   event_two <- reactive(event_data(event = "plotly_selected", source = "b", priority = "event"))
+
   
   ## Building categorical filters here so they can be accessed in pull down and logic handler 
   ## TO DO: Set these columns to by a part of the Controller - potentially as an s3 or store the app data as a list - with this as an additional dataframe
@@ -237,7 +243,7 @@ server <- function(input, output) {
   ######################################
   
   ## TO DO: abstract the checkbox input names and pass as ine thing 
-  observeEvent(ignoreInit = TRUE, 
+  observeEvent(ignoreInit = TRUE, ignoreNULL = TRUE,
                list(input$Bivariate, 
                     # this isolate prevents re rendering loop 
                     input$Simplify,
@@ -246,12 +252,8 @@ server <- function(input, output) {
                     input$VarOne, 
                     input$VarTwo, 
                     input$Geography, 
-                    input$Catagory, 
                     event_one(), 
-                    event_two(),
-                    input$owner_type_description, input$primary_source_code, input$pop_catagories, input$tier), {
-                      ## show spinner                                        
-                      show_spinner() 
+                    event_two(), input$FilterCats), {
                       
                       ## Simplifying polygons                 
                       if(input$Simplify == TRUE)
@@ -268,12 +270,13 @@ server <- function(input, output) {
                       }
                       
                       ## Main Catches and Geography Filter
-                      if(length(input$Geography) == 0 | input$VarOne == input$VarTwo) {
+                      if(length(input$Geography) == 0 | input$VarOne == input$VarTwo | input$VarOne == "" | input$VarTwo == "") {
                         showNotification(id = "notification", "Insufficient data selected or duplicate variables chosen, please change selection", type = "warning")
                       } else {
+                        
                         ## Filter data based on selected geography
-                        if(!str_detect(paste(input$Geography, collapse = "|"), "All")) {
-                          
+                        if(!str_detect(paste(input$Geography, collapse = "|"), "All Texas")) {
+          
                           selected_inputs <- unlist(str_split(input$Geography, ","))
                           
                           # Initialize a logical vector to store the filtering result
@@ -301,26 +304,30 @@ server <- function(input, output) {
                         event_two_min <- if (!is.null(event_two())) min(event_two()$x, na.rm = TRUE) else min(Data %>% pull(!!input$VarTwo), na.rm = TRUE)
                         ## Filter data based on events
                         
-                        
                         Data <- Data %>%
                           filter(!!as.symbol(input$VarOne) <= event_one_max &
                                    !!as.symbol(input$VarOne) >= event_one_min &
                                    !!as.symbol(input$VarTwo) <= event_two_max &
                                    !!as.symbol(input$VarTwo) >= event_two_min)
                         
-                        ## Filter data based on type selection
-                        if (!is.null(input$owner_type_description)) {
-                          for (col in cat_columns) {
-                            checkboxSelection[[col]] <- input[[col]]
-                          }
-                          for (col in cat_columns) {
-                            selectedChoices <- checkboxSelection[[col]]
-                            if (length(selectedChoices) > 0) {
-                              Data <- Data[Data[[col]] %in% selectedChoices, ]
+                        if (!is.null(input$FilterCats[1])) {
+                          if (input$FilterCats > 0) {
+                            for (col in cat_columns) {
+                              checkboxSelection[[col]] <- input[[col]]
+                            }
+                            for (col in cat_columns) {
+                              selectedChoices <- checkboxSelection[[col]]
+                              if (is.null(selectedChoices)) {
+                                # If "NULL" is in selectedChoices, set Data to be 1 row
+                                Data <- Data %>% slice(1)
+                                break  # Exit the loop
+                              } else if (length(selectedChoices) > 0) {
+                                Data <- Data[Data[[col]] %in% selectedChoices, ]
+                              }
                             }
                           }
                         }
-                        
+
                         if(nrow(Data) < 2) {
                           showNotification(id = "notification", "Insufficient data, please select at least two utilities.", type = "warning")
                         } else {
@@ -367,7 +374,13 @@ server <- function(input, output) {
                                           group = "Sabs")
                           } else {
                             ## Univariate plot
-                            colvar <- Data[[input$VarOne]]
+                            n_unique <- length(unique(na.omit(Data[[input$VarOne]])))
+                            if (n_unique == 1) {
+                              colvar <- c(0, 1)
+                            } else {
+                              colvar <- quantile(Data[[input$VarOne]], probs = c(0, 0.25, 0.5, 0.75, 1))
+                            }
+                            
                             pal <- colorNumeric(
                               palette = c("#f5f5f5", "#7ab3d1", "#036eae"),
                               domain = colvar
@@ -376,7 +389,7 @@ server <- function(input, output) {
                               addPolygons(data = Data,
                                           layerId = ~pwsid,
                                           label = ~label_text,
-                                          fillColor = ~pal(colvar),
+                                          fillColor = ~pal(Data[[input$VarOne]]),
                                           fillOpacity = .9,
                                           weight = .75,
                                           color = "grey",
@@ -385,8 +398,7 @@ server <- function(input, output) {
                           }
                         }
                       }
-                      #print(Sys.time() -start )
-                      Sys.sleep(.05)
+                      Sys.sleep(.5)
                       hide_spinner()
                     })
   
@@ -403,7 +415,6 @@ server <- function(input, output) {
   observeEvent(ignoreInit = TRUE, input$hideSidebar,{
     toggle("sidebar", anim = FALSE,animType = "slide")
   })
-  
   
   ################
   #### Map #######
@@ -436,8 +447,10 @@ server <- function(input, output) {
   output$SelectGeography <- renderUI({
     GeoChoices <- list()
     
+    GeoChoices$All <- c("All Texas","")
     GeoChoices$Regions <- sort(unique_regions)
     GeoChoices$Counties <- sort(Counties)
+    
     tagList(
       tipify(el = icon(name = "map-location-dot", lib = "font-awesome", style = "font-size: 17px"), placement = "right", 
              title = HTML("Search or select a region defined by the Texas Water Development Board, or an individual county. Max selection size is five")),
@@ -461,7 +474,6 @@ server <- function(input, output) {
   }
   
   output$SelectCat <- renderUI({
-  #  req(Controller$data_select)
     inputIds <- cat_dict$var_name
     
     checkbox_inputs <- mapply(function(col, lab, inputId) {
@@ -472,8 +484,10 @@ server <- function(input, output) {
         generateCheckboxGroupInput(inputId, lab, choices, selected)
       )
     }, cat_columns, cat_labels, inputIds, SIMPLIFY = FALSE)
-    
-    fluidRow(do.call(tagList, checkbox_inputs))
+    tagList(
+    fluidRow(do.call(tagList, checkbox_inputs)),
+    actionButton("FilterCats", "Filter")
+        )
   })
   
   
@@ -485,7 +499,7 @@ server <- function(input, output) {
     ## Percent of Color 
     
     UtilityCount <- paste("<i>", "Utility Count: </i> <b>", scales::number(length(unique(Controller$data_select$pwsid)), big.mark = ","),"</b>", "<br>")
-    Population <- paste("<i>", "Utility Users: </i> <b>", scales::number(sum(Controller$data_select$estimate_total_pop), big.mark = ","),"</b>", "<br>")
+    Population <- paste("<i>", "Utility Users: </i> <b>", scales::number(sum(Controller$data_select$estimate_total_pop, na.rm = TRUE), big.mark = ","),"</b>", "<br>")
     MHI <- paste("<i> ", "Avg. Median Household Income: </i> <b>", dollar(mean(Controller$data_select$estimate_mhi, na.rm = TRUE)),"</b>", "<br>")
     POC <- paste("<i>", "Percent of Color: </i> <b>", scales::percent(mean(Controller$data_select$estimate_poc_alone_per, na.rm = TRUE) / 100) ,"</b>", "<br>")
     
@@ -502,12 +516,12 @@ server <- function(input, output) {
   ## Variable One Select
   output$VarOne <- renderUI({
     tagList(
-      div(style = "display:flex; align-items: center; margin-top: -10px",
+      div(style = "display:flex; align-items: center; margin-top: -10px; margin-bottom: -6px",
           tipify(el = icon(name = "clone", lib = "font-awesome", style = "font-size: 17px; margin-right: 5px;"), placement = "right",
                  title = HTML("Map your primary variable against your secondary variable")),
           HTML(paste("<b> Bivariate Mapping: </b>")),
           HTML("&nbsp;"), # Adding a non-breaking space for spacing
-          div(style = "margin-bottom: -12px; margin-right: -3px;",
+          div(style = "margin-bottom: -9px; margin-right: -6px;",
               checkboxInput("Bivariate", "", value = FALSE))
       ),
       tipify(el = icon(name = "chart-column", lib = "font-awesome", style = "color: #7ab3d1; font-size: 17px"), placement = "right", 
@@ -516,6 +530,21 @@ server <- function(input, output) {
       selectizeInput("VarOne", "", choices = cont_choices, selected = "estimate_mhi", multiple = FALSE)
     )
     
+  })
+  
+  output$VarOneMinMax <- renderUI({
+    req(Controller$data_select)
+  #  checkbox
+    event_one_max <- if (!is.null(event_one())) max(event_one()$x, na.rm = TRUE) else max(Controller$data_select %>% pull(!!input$VarOne), na.rm = TRUE)
+    event_one_min <- if (!is.null(event_one())) min(event_one()$x, na.rm = TRUE) else min(Controller$data_select%>% pull(!!input$VarOne), na.rm = TRUE)
+    
+    min <- paste(" <i> Min: </i> <b>",scales::number(round(event_one_min,4),big.mark = ","), "</b>")
+    max <- paste(" <i> Max: </i> <b>",scales::number(round(event_one_max,2),big.mark = ","), "</b>")
+    
+    tagList(
+        HTML(min),
+        HTML(max),
+      )
   })
   
   # Variable One Hist
@@ -534,7 +563,7 @@ server <- function(input, output) {
     plot_ly(x =  Controller$data_select %>% pull(!!input$VarOne), 
             type = "histogram", source = "a", 
             nbinsx = 50, 
-            marker = list(color = "#7ab3d1", line = list(color = "black", width = 1)))%>% 
+            marker = list(color = "#7ab3d1", line = list(color = "grey", width = 1)))%>% 
       config(displayModeBar = FALSE) %>%
       event_register("plotly_selected")%>%
       layout( dragmode = "select", margin = m)
@@ -548,6 +577,21 @@ server <- function(input, output) {
       HTML(paste("<b> Secondary Variable: </b>")),
       selectInput("VarTwo", "", choices = cont_choices, selected = "healthbased_violations_5yr", multiple = FALSE)
     )
+  })
+  
+  output$VarTwoMinMax <- renderUI({
+    req(Controller$data_select)
+    event_two_max <- if (!is.null(event_two())) max(event_two()$x, na.rm = TRUE) else max(Controller$data_select %>% pull(!!input$VarTwo), na.rm = TRUE)
+    event_two_min <- if (!is.null(event_two())) min(event_two()$x, na.rm = TRUE) else min(Controller$data_select%>% pull(!!input$VarTwo), na.rm = TRUE)
+    
+    min <- paste(" <i> Min: </i> <b>",scales::number(round(event_two_min,2),big.mark = ","), "</b>")
+    max <- paste(" <i> Max: </i> <b>",scales::number(round(event_two_max,2),big.mark = ","), "</b>")
+    
+    tagList(
+      HTML(min),
+      HTML(max)
+    )
+    
   })
   
   # Variable Two Hist
@@ -564,7 +608,7 @@ server <- function(input, output) {
     
     plot_ly(x =  Controller$data_select %>% pull(!!input$VarTwo), type = "histogram", source = "b", 
             nbinsx = 50, 
-      marker = list(color = "#dd7c8a", line = list(color = "black", width = 1)))%>% 
+      marker = list(color = "#dd7c8a", line = list(color = "grey", width = 1)))%>% 
       config(displayModeBar = FALSE) %>%
       event_register("plotly_selected")%>%
       layout(dragmode = "select",  margin = m)
