@@ -546,8 +546,6 @@ server <- function(input, output) {
     paste("Click a column to sort and slide a column to expand")
   })
   
-  
-  # use a promise to render the table
   output$Table <- renderUI({
     req(Controller$data_select)
     TableData <- Controller$data_select %>%
@@ -579,17 +577,44 @@ server <- function(input, output) {
                   # socioeconomic:
                   estimate_mhi = colDef(name = "MHI ($)"),
                   estimate_total_pop = colDef(name = "Population"),
+                  estimate_white_alone_per = colDef(name = "% White Alone"),
+                  estimate_black_alone_per= colDef(name = "% Black Alone"),
+                  estimate_AIAN_alone_per= colDef(name = "% American Indian and Alaskan Native Alone"),
+                  estimate_asian_alone_per = colDef(name = "% Asian Alone"),
+                  estimate_NAPI_alone_per= colDef(name = "% Native American and Pacific Islander Alone"),
+                  estimate_other_alone_per= colDef(name = "% Other Race Alone"),
+                  estimate_mixed_alone_per= colDef(name = "% Mixed Race Alone"),
+                  estimate_poc_alone_per = colDef(name = "%POC"),
                   estimate_hisp_alone_per = colDef(name = "% Latino/a"),
+                  estimate_ageunder_5_per = colDef(name = "% Age < 5"),
+                  estimate_bachelors_per = colDef(name = "% Bachelor's Degree"),
+                  estimate_prof_degree_per = colDef(name = "% Professional Degree"),
                   estimate_laborforce_unemployed_per = colDef(name = "% Unemployment"),
                   estimate_hh_below_pov_per = colDef(name = "% Poverty"),
-                  estimate_poc_alone_per = colDef(name = "%POC"),
+                  percent_disadv_cejst= colDef(name = "% Service Area that is Disadvantaged"),
+                  mean_thresholds_exceeded_cejst = colDef(name = "Mean CEJST Thresholds Exceeded"),
                   # violations:
                   paperwork_violations_10yr = colDef(name = "Non-Health, 10yr"),
                   healthbased_violations_10yr = colDef(name = "Health, 10yr"),
                   total_violations_10yr = colDef(name = "Total, 10yr"),
                   paperwork_violations_5yr = colDef(name = "Non-Health, 5yr"),
                   healthbased_violations_5yr = colDef(name = "Health, 5yr"),
-                  total_violations_5yr = colDef(name = "Total, 5yr")
+                  total_violations_5yr = colDef(name = "Total, 5yr"),
+                  # financial: 
+                  total_water_sewer = colDef(name = "Annual Water & Sewer Rate ($)"),
+                  dwsrf_times_funded= colDef(name = "Times funded - DW SRF (2009 - 2020)"),
+                  dwsrf_total_assistance= colDef(name = "Total assistance - DW SRF (2009 - 2020)"),
+                  dwsrf_total_pf= colDef(name = "Total principal forgiveness - DW SRF (2009 - 2020)"),
+                  dwsrf_median_assistance= colDef(name = "Median assistance - DW SRF (2009 - 2020)"),
+                  # environmental: 
+                  limited_water_use = colDef(name = "Limited Water Notices (2023-2024)"),
+                  total_bwn= colDef(name = "Boil Water Notices Since 2018"),
+                  cvi_weighted_score = colDef(name = "Climate Vulnerability Index"),
+                  haz_waste= colDef(name = "Hazardous Waste Indicator"),
+                  rmp= colDef(name = "RMP Facility Indicator"),
+                  storage_tanks = colDef(name = "Underground Storage Tank Indicator"),
+                  superfund = colDef(name = "Superfund Proximity Indicator"),
+                  waste_discharge= colDef(name = "Waste Discharge Indicator")
                 ),
                 columnGroups = list(
                   colGroup(name = "Utility", columns = c("pwsid", "pws_name",
@@ -600,13 +625,35 @@ server <- function(input, output) {
                                                          "pop_density", "area_miles")),
                   colGroup(name = "Socioeconomic", columns = c("estimate_mhi", "estimate_total_pop",
                                                                "estimate_hisp_alone_per", "estimate_laborforce_unemployed_per",
-                                                               "estimate_hh_below_pov_per", "estimate_poc_alone_per")),
+                                                               "estimate_hh_below_pov_per", "estimate_poc_alone_per", 
+                                                               "estimate_white_alone_per",
+                                                               "estimate_black_alone_per",
+                                                               "estimate_AIAN_alone_per",
+                                                               "estimate_asian_alone_per",
+                                                               "estimate_NAPI_alone_per",
+                                                               "estimate_other_alone_per",
+                                                               "estimate_mixed_alone_per",
+                                                               "estimate_bachelors_per",
+                                                               "estimate_prof_degree_per",
+                                                               "estimate_ageunder_5_per",
+                                                               "percent_disadv_cejst", "mean_thresholds_exceeded_cejst")),
                   colGroup(name = "Violations", columns = c("healthbased_violations_5yr",
                                                             "healthbased_violations_10yr",
                                                             "paperwork_violations_5yr",
                                                             "paperwork_violations_10yr",
                                                             "total_violations_5yr",
-                                                            "total_violations_10yr"))
+                                                            "total_violations_10yr")), 
+                  colGroup(name = "Financial", columns = c("total_water_sewer", 
+                                                           "dwsrf_times_funded", 
+                                                           "dwsrf_total_assistance",
+                                                           "dwsrf_total_pf",
+                                                           "dwsrf_median_assistance")), 
+                  colGroup(name = "Environmental", columns = c("limited_water_use", 
+                                                               "cvi_weighted_score",
+                                                               "total_bwn", 
+                                                               "haz_waste", "rmp", 
+                                                               "storage_tanks", "superfund", 
+                                                               "waste_discharge"))
                 ),
                 highlight = TRUE,
                 bordered = TRUE,
