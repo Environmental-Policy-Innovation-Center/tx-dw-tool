@@ -807,7 +807,7 @@ output$downloadData <- downloadHandler(
     
     # add methods doc: 
     methods_doc <- drive_download("https://docs.google.com/document/d/1va2Iq2oJxnqiwgNHD4bWpXKxdWbq-TYoYkosj1oz_JU/edit", 
-                                   file.path(tempdir(),"tx-app-data-dictionary.docx"), overwrite = TRUE)
+                                   file.path(tempdir(),"tx-app-methods.docx"), overwrite = TRUE)
     
     # if statement to handle different file formats: 
     if(input$downloadType == ".csv") {
@@ -841,7 +841,7 @@ output$downloadData <- downloadHandler(
     
     # zippin' it up!
     zip::zip(file, files = c(file.path(tempdir(), "tx-app-data-dictionary.csv"),
-                             file.path(tempdir(),"tx-app-data-dictionary.docx"),
+                             file.path(tempdir(),"tx-app-methods.docx"),
                              data_path_selected, 
                              data_path_full),
              mode = "cherry-pick")

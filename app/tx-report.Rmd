@@ -18,7 +18,7 @@ knitr::opts_chunk$set(warning = FALSE, message = FALSE, tidy.opts = list(width.c
 
 # TODO: 
 # - bivar color scale for mapping 
-# - zoomed plot looks weird when you only select a couple of utilities 
+# - zoomed plot looks weird when you only select a couple of utilities
 ```
 
 ```{r, echo = FALSE}
@@ -62,8 +62,7 @@ Summary report for: ``r length(unique(data$pwsid))`` water utility service area 
 # finding zoom boundaries: 
 zoom <- st_bbox(data)
 
-
-# NOTE: a bug in the package is that you can't pass symbols to bi_class, 
+#NOTE: a bug in the package is that you can't pass symbols to bi_class, 
 # which means we can't pass the v1 and v2 parameters to the function 
 
 # data_bi <- bi_class(data,
