@@ -5,6 +5,7 @@ output:
   html_document:
     fig_width: 5
     fig_height: 6
+    highlight: null
 fontsize: 10pt
 params:
   data_p: NULL
@@ -16,8 +17,8 @@ params:
 knitr::opts_chunk$set(warning = FALSE, message = FALSE, tidy.opts = list(width.cutoff = 60), tidy = TRUE) 
 
 # TODO: 
-# - fix wrapping of county list 
 # - bivar color scale for mapping 
+# - zoomed plot looks weird when you only select a couple of utilities 
 ```
 
 ```{r, echo = FALSE}
@@ -39,7 +40,7 @@ v2 <- params$var_two
 tx_basemap <- map_data("county") %>%
   filter(region == "texas")
 
-# grabbing clean names for selected varibales: 
+# grabbing clean names for selected variables: 
 suppressMessages({data_dict <- aws.s3::s3read_using(read.csv, 
                                                     object = "state-drinking-water/TX/clean/app/data_dict_v2.csv",
                                                     bucket = "tech-team-data")})
