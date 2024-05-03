@@ -55,11 +55,11 @@ sabs <- demo$census %>%
   mutate(pop_catagories = ifelse(estimate_total_pop >= 10001, "Large 10k-100k", pop_catagories))%>%
   mutate(pop_catagories = ifelse(estimate_total_pop > 100000, "Very Large 100k+", pop_catagories))%>%
   # creating more human-readable source type codes: 
-  mutate(primary_source_code = case_when(primary_source_code == "SWP" ~ "Surface Water - Purchased", 
-                                         primary_source_code == "GW" ~ "Groundwater", 
-                                         primary_source_code == "SW" ~ "Surface Water", 
-                                         primary_source_code == "GWP" ~ "Groundwater - Purchased", 
-                                         primary_source_code == "GU" ~ "Groundwater Influenced by Surface Water")) %>%
+  mutate(primary_source_code = case_when(primary_source_code == "SWP" ~ "Surface-Purchased", 
+                                         primary_source_code == "GW" ~ "Ground", 
+                                         primary_source_code == "SW" ~ "Surface", 
+                                         primary_source_code == "GWP" ~ "Ground-Purchased", 
+                                         primary_source_code == "GU" ~ "Ground Influenced by Surface")) %>%
   left_join(owner_type_merge)%>%
   select(pwsid, pws_name, county_served, area_miles, pop_density, estimate_total_pop,
          # grabbing all races
@@ -437,11 +437,11 @@ put_object(
 ```{r}
 # NOTE: just a quick chunk to update the RMD on S3 with local changes - not 
 # the best solution yet 
-filepath <- "./app/tx-report_v2.Rmd"
+filepath <- "./app/tx-report.Rmd"
 
 put_object(
   file = file.path(filepath),
-  object = "/state-drinking-water/TX/clean/app/tx-report_v2.Rmd",
+  object = "/state-drinking-water/TX/clean/app/tx-report.Rmd",
   bucket = "tech-team-data",
   acl = "public-read"
 )

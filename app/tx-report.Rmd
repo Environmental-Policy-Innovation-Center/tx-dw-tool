@@ -1,7 +1,12 @@
 ---
 title: "Texas Drinking Water Application - Exported Report"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
-output: html_document
+output:
+  html_document:
+    fig_width: 5
+    fig_height: 6
+    highlight: null
+fontsize: 10pt
 params:
   data_p: NULL
   var_one: NULL
@@ -9,7 +14,11 @@ params:
 ---
 
 ```{r setup, include=FALSE} 
-knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+knitr::opts_chunk$set(warning = FALSE, message = FALSE, tidy.opts = list(width.cutoff = 60), tidy = TRUE) 
+
+# TODO: 
+# - bivar color scale for mapping 
+# - zoomed plot looks weird when you only select a couple of utilities
 ```
 
 ```{r, echo = FALSE}
@@ -18,60 +27,149 @@ library(dplyr)
 library(sf)
 library(maps)
 library(knitr)
+library(stringr)
+# two packages that were used for testing bivariate plots 
+# library(biscale)
+# library(cowplot)
+
 data <- params$data_p
 v1 <- params$var_one
 v2 <- params$var_two
+
+# grabbing basemap: 
 tx_basemap <- map_data("county") %>%
   filter(region == "texas")
+
+# grabbing clean names for selected variables: 
+suppressMessages({data_dict <- aws.s3::s3read_using(read.csv, 
+                                                    object = "state-drinking-water/TX/clean/app/data_dict_v2.csv",
+                                                    bucket = "tech-team-data")})
+
+clean_v1_name <- data_dict %>% filter(var_name == !!(v1)) %>% pull(clean_name)
+clean_v2_name <- data_dict %>% filter(var_name == !!(v2)) %>% pull(clean_name)
 ```
 
+Summary report for: ``r length(unique(data$pwsid))`` water utility service area boundary(ies) located in ``r unique(unlist(str_split(data$regions, ",")))`` region(s) that serve ``r unique(data$county_served)`` county(ies)
 
-<h4>
-Report for: ``r length(unique(data$pwsid))`` water utility service area boundary(ies) located in ``r unique(data$regions)`` \
-</h4>
-
-<b>Population served: </b> ``r round(sum(data$estimate_total_pop, na.rm = T), 0)``\
-<b>Estimate Median Household Income:</b> \$``r round(mean(data$estimate_mhi, na.rm = T), 0) ``\
-<b>Estimate Percent Person of Color: </b>``r round(mean(data$estimate_poc_alone_per, na.rm = T), 0)``%\
-<br />
+<b> Links to Methods, Data Dictionary, and Repository </b>\
+[Methodology](https://docs.google.com/document/d/1va2Iq2oJxnqiwgNHD4bWpXKxdWbq-TYoYkosj1oz_JU/edit)\
+[Data Dictionary](https://docs.google.com/spreadsheets/d/1bzNPxhL-l6DeGElhG1c70Of8DGAQasMDUuX3rPHVe2A/edit#gid=0)\
+[Github Repository](https://github.com/Environmental-Policy-Innovation-Center/tx-dw-tool/tree/prod)\
 
 
-Map of utilities selected: \
+<div style= "float:right; position: relative">
 ```{r, echo = FALSE}
 # finding zoom boundaries: 
 zoom <- st_bbox(data)
 
-ggplot(data) + 
-  geom_polygon(data = tx_basemap, 
-               aes(x = long, y = lat, group = group), 
-               color = "grey60", fill = "grey") +   
+#NOTE: a bug in the package is that you can't pass symbols to bi_class, 
+# which means we can't pass the v1 and v2 parameters to the function 
+
+# data_bi <- bi_class(data,
+#                     x = sym(v1),
+#                     y = sym(v2),
+#                     style = "quantile", dim = 3)
+# 
+# legend <- bi_legend(pal = "GrPink",
+#                     dim = 3,
+#                     xlab = clean_v1_name,
+#                     ylab = clean_v2_name,
+#                     size = 10)
+# 
+# map <- ggplot(data) + 
+#   geom_polygon(data = tx_basemap, 
+#                aes(x = long, y = lat, group = group, 
+#                    fill = data_bi),
+#                color = "grey60", fill = "grey") +   
+#   geom_sf(data = data_bi, mapping = aes(fill = bi_class),
+#           size = 0.1, show.legend = FALSE) +
+#   bi_scale_fill(pal = "GrPink", dim = 3) +
+#   coord_sf(xlim = c(as.numeric(zoom[1]), as.numeric(zoom[3])), 
+#            ylim =  c(as.numeric(zoom[2]), as.numeric(zoom[4]))) + 
+#   theme_minimal() + 
+#   labs(x = "Longitude", y = "Latitude")
+# 
+# ggdraw() +
+#   draw_plot(map, 0, 0, 1, 1) +
+#   draw_plot(legend, 0.1, .1, 0.2, 0.2)
+
+ggplot(data) +
+  geom_polygon(data = tx_basemap,
+               aes(x = long, y = lat, group = group),
+               color = "grey60", fill = "grey") +
   geom_sf() +
-  coord_sf(xlim = c(as.numeric(zoom[1]), as.numeric(zoom[3])), 
-           ylim =  c(as.numeric(zoom[2]), as.numeric(zoom[4]))) + 
-  theme_minimal() + 
+  coord_sf(xlim = c(as.numeric(zoom[1]), as.numeric(zoom[3])),
+           ylim =  c(as.numeric(zoom[2]), as.numeric(zoom[4]))) +
+  theme_minimal() +
   labs(x = "Longitude", y = "Latitude")
 ```
-<br />
-<br />
+</div>
+
+<b> Socioeconomic summary of selected utilities: </b>\
+- Utility Users: ``r format(round(sum(data$estimate_total_pop, na.rm = T), 0), scientific = FALSE)``\
+- Average Percent Person of Color: ``r round(mean(data$estimate_poc_alone_per, na.rm = T), 0)``%\
+- Average Annual Median Household Income: \$``r format(round(mean(data$estimate_mhi, na.rm = T), 0), scientific = FALSE) ``\
+- Average Percent of Households Below Poverty Line: ``r format(round(mean(data$estimate_hh_below_pov_per, na.rm = T), 0), scientific = FALSE) ``%\
+- Average Percent Unemployment: ``r format(round(mean(data$estimate_laborforce_unemployed_per, na.rm = T), 0), scientific = FALSE) ``%\
 <br />
 
-<h3> Histogram of Variables: </h3> \
-Mean: ``r round(mean(data[[var_1]], na.rm = T), 0)``\
-Median: ``r  round(median(data[[var_1]], na.rm = T), 0)``\
-<div>
-```{r, echo = FALSE}
-mean_df <- mean(data[[var_1]], na.rm = T)
-median <- median(data[[var_1]], na.rm = T)
+<b> Violation summary of selected utilities: </b>\
+- Average Health-based Violations Over the Past 5 years: ``r format(round(mean(data$healthbased_violations_5yr, na.rm = T), 0), scientific = FALSE) ``\
+- Average Non-Health Violations Over the Past 5 years: ``r format(round(mean(data$paperwork_violations_5yr, na.rm = T), 0), scientific = FALSE) ``\
+- Average Total Violations Over the Past 5 years: ``r format(round(mean(data$total_violations_5yr, na.rm = T), 0), scientific = FALSE) ``\
+- Average Times Utilities Were on a Boil Water Notice Since 2018: ``r format(round(mean(data$total_bwn, na.rm = T), 0), scientific = FALSE) ``\
+<br />
+
+<b> Financial summary of selected utilities: </b>\
+- Average Annual Water & Sewer Bill: \$``r format(round(mean(data$total_water_sewer, na.rm = T), 0), scientific = FALSE) ``\
+- Total Number of Utilities Funded by Drinking Water's State Revolving Funds (DW SRF; 2009 - 2020):``r sum(data$dwsrf_times_funded > 0) ``\
+- Average Times Utilities Were Funded by DW SRFs: ``r format(round(mean(data$dwsrf_times_funded, na.rm = T), 2), scientific = FALSE) ``\
+- Average Total Assistance from DW SRFs: \$``r format(round(mean(data$dwsrf_total_assistance, na.rm = T), 0), scientific = FALSE) ``\
+- Average Total Principal Forgiveness by DW SRFs: \$``r format(round(mean(data$dwsrf_total_pf, na.rm = T), 0), scientific = FALSE) ``\
+<br />
+
+<b> Environmental summary of selected utilities: </b> \
+- Mean Climate Vulnerability Index:``r format(round(mean(data$cvi_weighted_score, na.rm = T), 2), scientific = FALSE) ``\
+- Number of Utilities on a Limited Water Notice to Avoid Shortages:``r sum(data$limited_water_use > 0) ``\
+<br />
+
+<b> Histogram of selected variables: ``r clean_v1_name `` and ``r clean_v2_name``: </b> \
+Mean of ``r clean_v1_name ``: ``r format(round(mean(data[[v1]], na.rm = T), 0), scientific = FALSE)`` shown as a black line\
+Median of ``r clean_v1_name ``: ``r  format(round(median(data[[v1]], na.rm = T), 0), scientific = FALSE)``, shown as a <span style="color: red;"> red </span> line\
+Mean of ``r clean_v2_name ``: ``r format(round(mean(data[[v2]], na.rm = T), 0), scientific = FALSE)``, shown as a black line\
+Median of ``r clean_v2_name ``: ``r  format(round(median(data[[v2]], na.rm = T), 0), scientific = FALSE)``, shown as a <span style="color: red;"> red </span> line\
+
+```{r, echo = FALSE, fig.show='hold', out.width='50%', fig.height=4}
+mean_v1 <- mean(data[[v1]], na.rm = T)
+median_v1 <- median(data[[v1]], na.rm = T)
 
 ggplot(data, 
-       aes(x = eval(sym(var_1)))) +
+       aes(x = eval(sym(v1)))) +
   geom_histogram() + 
-  labs(x = sym(var_1)) + 
+  labs(x = sym(v1)) + 
   theme_minimal() + 
-  geom_vline(xintercept = mean_df, lty = "dashed") + 
-  geom_vline(xintercept = median, lty = "dashed", color = "red")
+  geom_vline(xintercept = mean_v1, lty = "dashed",) + 
+  geom_vline(xintercept = median_v1, lty = "dashed", color = "red") + 
+  labs(x = clean_v1_name, y = "Number of Utilities") + 
+  ggtitle(paste0("Distribution of ", clean_v1_name))
 
-if (identical(rmarkdown::metadata$runtime, "shiny"))
-  shiny::setProgress(1)  # set progress to 100%
+mean_v2 <- mean(data[[v2]], na.rm = T)
+median_v2 <- median(data[[v2]], na.rm = T)
+
+ggplot(data,
+       aes(x = eval(sym(v2)))) +
+  geom_histogram() +
+  labs(x = sym(v2)) +
+  theme_minimal() +
+  geom_vline(xintercept = mean_v2, lty = "dashed") +
+  geom_vline(xintercept = median_v2, lty = "dashed", color = "red")+
+  labs(x = clean_v2_name, y = "Number of Utilities") + 
+  ggtitle(paste0("Distribution of ", clean_v2_name))
 ```
-</div>
+<br />
+
+<b> Links to Extra Resources </b> \
+[Texas Commission on Environmental Quality](https://www.tceq.texas.gov/)\
+[Texas Water Development Board](https://www.twdb.texas.gov/index.asp)\
+[EPA's Safe Drinking Water Information System](https://www.epa.gov/enviro/sdwis-overview)\
+

@@ -33,6 +33,7 @@ library(viridis)
 library(promises)
 library(future)
 library(tinytex)
+library(googledrive)
 
 
 ## TICKET LIST
@@ -54,6 +55,7 @@ ui <- fluidPage(
         margin-top: -20px; 
         margin-bottom: -20px;
         margin-left: -2px;
+        margin-top: -10px; 
       }
       .main-svg {
         border-radius: 5px; 
@@ -68,6 +70,7 @@ ui <- fluidPage(
       color: black;
        }
     
+    }
     ")
     )
   ),
@@ -81,7 +84,6 @@ ui <- fluidPage(
       id ="sidebar",
       sidebarPanel(
         style = "position: fixed; height: 100%; width: 420px; overflow-y: auto; margin-left: -30px;", 
-      #  div(style = "display:inline-block; float:right"),
         width = 3,
         actionButton("showInfo", "", icon(name = "circle-question", lib = "font-awesome", style = "font-size: 17px"), class = "info-button"), 
         uiOutput("SelectGeography", style = "width: 95%"), 
@@ -116,13 +118,13 @@ ui <- fluidPage(
                        icon = icon("file-arrow-down", lib = "font-awesome")),
         div(style = "display:inline-block",
             downloadButton("downloadData", "Download data"),
-        div(style = "margin-top:-15px",
-            radioButtons("downloadType", "", 
-                         choices = c(".csv" = ".csv",
-                                     ".geojson" = ".geojson"),
-                         inline = TRUE)
-            
-        ),
+            div(style = "margin-top:-15px",
+                radioButtons("downloadType", "", 
+                             choices = c(".csv" = ".csv",
+                                         ".geojson" = ".geojson"),
+                             inline = TRUE)
+                
+            ),
         ))
     ),
     mainPanel(
@@ -175,7 +177,7 @@ server <- function(input, output, session) {
                                                       object = "state-drinking-water/TX/clean/app/data_dict_v2.csv",
                                                       bucket = "tech-team-data")})
   
-  suppressWarnings({report <- aws.s3::s3read_using(readLines,object = "state-drinking-water/TX/clean/app/tx-report_v2.Rmd",
+  suppressWarnings({report <- aws.s3::s3read_using(readLines,object = "state-drinking-water/TX/clean/app/tx-report.Rmd",
                                                    bucket = "tech-team-data")})
   ################
   ### Variables ##
@@ -277,6 +279,7 @@ server <- function(input, output, session) {
                         ## Filter data based on selected geography
                         if(!str_detect(paste(input$Geography, collapse = "|"), "All Texas")) {
           
+
                           selected_inputs <- unlist(str_split(input$Geography, ","))
                           
                           # Initialize a logical vector to store the filtering result
@@ -474,6 +477,7 @@ server <- function(input, output, session) {
   }
   
   output$SelectCat <- renderUI({
+
     inputIds <- cat_dict$var_name
     
     checkbox_inputs <- mapply(function(col, lab, inputId) {
@@ -617,13 +621,10 @@ server <- function(input, output, session) {
   ################
   #### Table #####
   ################
-  ## ET ADDED v##
   output$TableText <- renderText({
     paste("Click a column to sort and slide a column to expand")
   })
   
-  
-  # use a promise to render the table
   output$Table <- renderUI({
     req(Controller$data_select)
     TableData <- Controller$data_select %>%
@@ -639,7 +640,8 @@ server <- function(input, output, session) {
                   pwsid = colDef(aggregate = "unique",
                                  name = "ID"),
                   pws_name = colDef(aggregate = "unique",
-                                    name = "Water System Name"),
+                                    name = "Water System Name", 
+                                    minWidth = 150),
                   county_served = colDef(aggregate = "unique",
                                          name = "County"),
                   regions = colDef(aggregate = "unique",
@@ -654,18 +656,72 @@ server <- function(input, output, session) {
                   area_miles = colDef(name = "Area (mi)"),
                   # socioeconomic:
                   estimate_mhi = colDef(name = "MHI ($)"),
-                  estimate_total_pop = colDef(name = "Population"),
-                  estimate_hisp_alone_per = colDef(name = "% Latino/a"),
-                  estimate_laborforce_unemployed_per = colDef(name = "% Unemployment"),
+                  estimate_total_pop = colDef(name = "Population", 
+                                              minWidth = 150),
+                  estimate_white_alone_per = colDef(name = "% White Alone", 
+                                                    minWidth = 150),
+                  estimate_black_alone_per= colDef(name = "% Black Alone", 
+                                                   minWidth = 150),
+                  estimate_AIAN_alone_per= colDef(name = "% American Indian and Alaskan Native Alone", 
+                                                  minWidth = 150),
+                  estimate_asian_alone_per = colDef(name = "% Asian Alone", 
+                                                    minWidth = 150),
+                  estimate_NAPI_alone_per= colDef(name = "% Native American and Pacific Islander Alone", 
+                                                  minWidth = 150),
+                  estimate_other_alone_per= colDef(name = "% Other Race Alone", 
+                                                   minWidth = 150),
+                  estimate_mixed_alone_per= colDef(name = "% Mixed Race Alone", 
+                                                   minWidth = 150),
+                  estimate_poc_alone_per = colDef(name = "%POC", 
+                                                  minWidth = 150),
+                  estimate_hisp_alone_per = colDef(name = "% Latino/a", 
+                                                   minWidth = 150),
+                  estimate_ageunder_5_per = colDef(name = "% Age < 5", 
+                                                   minWidth = 150),
+                  estimate_bachelors_per = colDef(name = "% Bachelor's Degree", 
+                                                  minWidth = 150),
+                  estimate_prof_degree_per = colDef(name = "% Professional Degree", 
+                                                    minWidth = 150),
+                  estimate_laborforce_unemployed_per = colDef(name = "% Unemployment", 
+                                                              minWidth = 150),
                   estimate_hh_below_pov_per = colDef(name = "% Poverty"),
-                  estimate_poc_alone_per = colDef(name = "%POC"),
+                  percent_disadv_cejst= colDef(name = "% Service Area that is Disadvantaged", 
+                                               minWidth = 150),
+                  mean_thresholds_exceeded_cejst = colDef(name = "Mean CEJST Thresholds Exceeded", 
+                                                          minWidth = 150),
                   # violations:
                   paperwork_violations_10yr = colDef(name = "Non-Health, 10yr"),
                   healthbased_violations_10yr = colDef(name = "Health, 10yr"),
                   total_violations_10yr = colDef(name = "Total, 10yr"),
                   paperwork_violations_5yr = colDef(name = "Non-Health, 5yr"),
                   healthbased_violations_5yr = colDef(name = "Health, 5yr"),
-                  total_violations_5yr = colDef(name = "Total, 5yr")
+                  total_violations_5yr = colDef(name = "Total, 5yr"),
+                  # financial: 
+                  total_water_sewer = colDef(name = "Annual Water & Sewer Rate ($)", 
+                                             minWidth = 150),
+                  dwsrf_times_funded= colDef(name = "Times funded - DW SRF (2009 - 2020)", 
+                                             minWidth = 150),
+                  dwsrf_total_assistance= colDef(name = "Total assistance - DW SRF (2009 - 2020)", 
+                                                 minWidth = 150),
+                  dwsrf_total_pf= colDef(name = "Total principal forgiveness - DW SRF (2009 - 2020)", 
+                                         minWidth = 150),
+                  dwsrf_median_assistance= colDef(name = "Median assistance - DW SRF (2009 - 2020)", 
+                                                  minWidth = 150),
+                  # environmental: 
+                  limited_water_use = colDef(name = "Limited Water Notices (2023-2024)", 
+                                             minWidth = 150),
+                  total_bwn= colDef(name = "Boil Water Notices Since 2018", 
+                                    minWidth = 150),
+                  cvi_weighted_score = colDef(name = "Climate Vulnerability Index", 
+                                              minWidth = 150),
+                  haz_waste= colDef(name = "Hazardous Waste Indicator", 
+                                    minWidth = 150),
+                  rmp= colDef(name = "RMP Facility Indicator"),
+                  storage_tanks = colDef(name = "Underground Storage Tank Indicator", 
+                                         minWidth = 150),
+                  superfund = colDef(name = "Superfund Proximity Indicator"),
+                  waste_discharge= colDef(name = "Waste Discharge Indicator", 
+                                          minWidth = 150)
                 ),
                 columnGroups = list(
                   colGroup(name = "Utility", columns = c("pwsid", "pws_name",
@@ -676,18 +732,39 @@ server <- function(input, output, session) {
                                                          "pop_density", "area_miles")),
                   colGroup(name = "Socioeconomic", columns = c("estimate_mhi", "estimate_total_pop",
                                                                "estimate_hisp_alone_per", "estimate_laborforce_unemployed_per",
-                                                               "estimate_hh_below_pov_per", "estimate_poc_alone_per")),
+                                                               "estimate_hh_below_pov_per", "estimate_poc_alone_per", 
+                                                               "estimate_white_alone_per",
+                                                               "estimate_black_alone_per",
+                                                               "estimate_AIAN_alone_per",
+                                                               "estimate_asian_alone_per",
+                                                               "estimate_NAPI_alone_per",
+                                                               "estimate_other_alone_per",
+                                                               "estimate_mixed_alone_per",
+                                                               "estimate_bachelors_per",
+                                                               "estimate_prof_degree_per",
+                                                               "estimate_ageunder_5_per",
+                                                               "percent_disadv_cejst", "mean_thresholds_exceeded_cejst")),
                   colGroup(name = "Violations", columns = c("healthbased_violations_5yr",
                                                             "healthbased_violations_10yr",
                                                             "paperwork_violations_5yr",
                                                             "paperwork_violations_10yr",
                                                             "total_violations_5yr",
-                                                            "total_violations_10yr"))
+                                                            "total_violations_10yr")), 
+                  colGroup(name = "Financial", columns = c("total_water_sewer", 
+                                                           "dwsrf_times_funded", 
+                                                           "dwsrf_total_assistance",
+                                                           "dwsrf_total_pf",
+                                                           "dwsrf_median_assistance")), 
+                  colGroup(name = "Environmental", columns = c("limited_water_use", 
+                                                               "cvi_weighted_score",
+                                                               "total_bwn", 
+                                                               "haz_waste", "rmp", 
+                                                               "storage_tanks", "superfund", 
+                                                               "waste_discharge"))
                 ),
                 highlight = TRUE,
                 bordered = TRUE,
                 resizable = TRUE,
-                ###### ET v#######
                 showSortable = TRUE,
                 searchable = TRUE,
                 # adopted from this stock overflow question: https://stackoverflow.com/questions/74222616/change-search-bar-text-in-reactable-table-in-r
@@ -699,13 +776,12 @@ server <- function(input, output, session) {
                   pageNext = "\u276f",
                   pagePreviousLabel = "Previous page",
                   pageNextLabel = "Next page"),
-                ###### ET ^#######
                 defaultPageSize = 15,
       )
     })
   })
   
-  
+
   InfoModal <- modalDialog(
     title = HTML("<b> Texas Community Water System Prioritization Tool - dev 1.0 </b>"),
     HTML("<b> Quick Start: </b>"),
@@ -763,12 +839,11 @@ server <- function(input, output, session) {
   ################
   #### Report ####
   ################
-  ### ET ADDED V ####
-  
+
   # code for report adopted from: https://shiny.posit.co/r/articles/build/generating-reports/
   output$Report <- downloadHandler(
     
-    filename = "Report.pdf",
+    filename = "Report.html",
     content = function(file_n) {
       withProgress(message = 'Rendering, please wait!', {
         # this downloads - need to figure out how to add it to the params
@@ -793,23 +868,61 @@ server <- function(input, output, session) {
       })
     })
   
-  # download handler: 
-  output$downloadData <- downloadHandler(
-    filename = function() {
-      paste0("data", input$downloadType)
-    },
-    content = function(file) {
-      if(input$downloadType == ".csv") {
-        csv_data <- Controller$data_select %>% 
-          as.data.frame() %>%
-          select(-"geometry")
-        write.csv(csv_data, 
-                  file, row.names = FALSE)
-      } else if(input$downloadType == ".geojson") {
-        st_write(Controller$data_select, file)
-      }
-    })  
-}
+# download handler: 
+output$downloadData <- downloadHandler(
+  
+  filename = "tx-dw-app.zip",
+  
+  content = function(file) {
+    
+    drive_deauth()
+     
+    # add data dictionary: 
+    dictionary_csv <- drive_download("https://docs.google.com/spreadsheets/d/1bzNPxhL-l6DeGElhG1c70Of8DGAQasMDUuX3rPHVe2A/edit#gid=0", 
+                                     file.path(tempdir(), "tx-app-data-dictionary.csv"), overwrite = TRUE)
+    
+    # add methods doc: 
+    methods_doc <- drive_download("https://docs.google.com/document/d/1va2Iq2oJxnqiwgNHD4bWpXKxdWbq-TYoYkosj1oz_JU/edit", 
+                                   file.path(tempdir(),"tx-app-methods.docx"), overwrite = TRUE)
+    
+    # if statement to handle different file formats: 
+    if(input$downloadType == ".csv") {
+      # grabbing the selected data: 
+      csv_data <- Controller$data_select %>% 
+        as.data.frame() %>%
+        select(-"geometry")
+      write.csv(csv_data, 
+                file.path(tempdir(), "tx-app-selected-data.csv"), 
+                row.names = FALSE)
+      data_path_selected <- file.path(tempdir(), "tx-app-selected-data.csv")
+      
+      # grabbing the full dataset: 
+      tx_raw_data <- tx_raw %>%
+        as.data.frame() %>%
+        select(-"geometry")
+      write.csv(tx_raw_data, 
+                file.path(tempdir(), "tx-app-full-data.csv"), 
+                row.names = FALSE)
+      data_path_full <- file.path(tempdir(), "tx-app-full-data.csv")
+      
+    } else if(input$downloadType == ".geojson") {
+      # grabbing the selected data: 
+      st_write(Controller$data_select, file.path(tempdir(), "tx-app-selected-data.geojson"), delete_layer = TRUE)
+      data_path_selected <- file.path(tempdir(), "tx-app-selected-data.geojson")
+      
+      # grabbing the full dataset: 
+      st_write(tx_raw, file.path(tempdir(), "tx-app-full-data.geojson"), delete_layer = TRUE)
+      data_path_full <- file.path(tempdir(), "tx-app-full-data.geojson")
+    }
+    
+    # zippin' it up!
+    zip::zip(file, files = c(file.path(tempdir(), "tx-app-data-dictionary.csv"),
+                             file.path(tempdir(),"tx-app-methods.docx"),
+                             data_path_selected, 
+                             data_path_full),
+             mode = "cherry-pick")
+  })
 
+}
 # Run the application 
 shinyApp(ui = ui, server = server)
