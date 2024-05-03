@@ -34,6 +34,7 @@ library(promises)
 library(future)
 library(tinytex)
 library(googledrive)
+library(waiter)
 
 
 ## TICKET LIST
@@ -53,7 +54,7 @@ ui <- fluidPage(
       HTML("
       .selectize-control {
         margin-top: -20px; 
-        margin-bottom: -20px;
+        margin-bottom: -10px;
         margin-left: -2px;
         margin-top: -10px; 
       }
@@ -75,6 +76,7 @@ ui <- fluidPage(
     )
   ),
   
+  useWaitress(color = "#79b2d1", percent_color = "#333333"),
   reactable_extras_dependency(),
   add_busy_spinner(spin = "fading-circle", position = "top-left"),
   useShinyjs(),
@@ -148,11 +150,16 @@ ui <- fluidPage(
 ################
 server <- function(input, output, session) {
   
+  waitress <- Waitress$
+    new(theme = "overlay-percent")$
+    start() # start
+  
   #################### 
   ### Data Import #### 
   #################### 
   ## TO DO: Move this to the .RMD and return 1 object with 2 dataframes 
-  
+  # increase by 20
+  waitress$inc(20) 
   tx_raw <- aws.s3::s3read_using(st_read, 
                                  object = "state-drinking-water/TX/clean/app/app_test_data_simplified_v2.geojson",
                                  bucket = "tech-team-data", 
@@ -162,7 +169,8 @@ server <- function(input, output, session) {
                                       object = "state-drinking-water/TX/clean/app/tx_counties_simplified_v2.geojson",
                                       bucket = "tech-team-data",
                                       quiet = TRUE)
-  
+  # increase by 20
+  waitress$inc(20) 
   tx_regions <- aws.s3::s3read_using(st_read, 
                                      object = "state-drinking-water/TX/clean/app/tx_regions_simplified.geojson",
                                      bucket = "tech-team-data",
@@ -172,7 +180,8 @@ server <- function(input, output, session) {
                                                   object = "state-drinking-water/TX/clean/app/tx_sab_super_simplified.geojson",
                                                   bucket = "tech-team-data",
                                                   quiet = TRUE)
-  
+  # increase by 20
+  waitress$inc(20) 
   suppressMessages({data_dict <- aws.s3::s3read_using(read.csv, 
                                                       object = "state-drinking-water/TX/clean/app/data_dict_v2.csv",
                                                       bucket = "tech-team-data")})
@@ -196,6 +205,8 @@ server <- function(input, output, session) {
   # List of counties
   Counties <- unique(tx_raw$county_served)
   
+  # increase by 20
+  waitress$inc(20) 
   ## Generating unique list of regionsw
   pwsid_regions <- tx_raw %>%
     data.frame()%>%
@@ -213,6 +224,7 @@ server <- function(input, output, session) {
   ## Building categorical filters here so they can be accessed in pull down and logic handler 
   ## TO DO: Set these columns to by a part of the Controller - potentially as an s3 or store the app data as a list - with this as an additional dataframe
   ## TO DO: Set this to the controller! 
+  waitress$inc(20) 
   checkboxSelection <- reactiveValues()
   
   cat_dict <- data_dict %>%
@@ -234,7 +246,9 @@ server <- function(input, output, session) {
     split(.$category) %>%
     lapply(function(x) setNames(x$var_name, x$clean_name))
   
-  
+  # increase by 20
+
+  waitress$close() 
   ################
   ### Observes ###
   ################
@@ -458,7 +472,7 @@ server <- function(input, output, session) {
       tipify(el = icon(name = "map-location-dot", lib = "font-awesome", style = "font-size: 17px"), placement = "right", 
              title = HTML("Search or select a region defined by the Texas Water Development Board, or an individual county. Max selection size is five")),
       HTML(paste("<b> Geography: </b>")),
-      selectizeInput("Geography","", choices = GeoChoices, selected = "I - East Texas", multiple = TRUE, options = list(maxItems = 5)),
+      selectizeInput("Geography","", choices = GeoChoices, selected = c("I - East Texas", "D - North East Texas"), multiple = TRUE, options = list(maxItems = 5)),
       div(style = "display:flex; align-items: center; margin-top: -20px",
           tipify(el = icon(name = "draw-polygon", lib = "font-awesome", style = "font-size: 17px; margin-right: 5px;"), placement = "right",
                  title = HTML("On limited bandwith or plotting lots of data? Reduce the data quality for service area boundary geographies to improve rendering")),
@@ -520,7 +534,7 @@ server <- function(input, output, session) {
   ## Variable One Select
   output$VarOne <- renderUI({
     tagList(
-      div(style = "display:flex; align-items: center; margin-top: -10px; margin-bottom: -6px",
+      div(style = "display:flex; align-items: center; margin-top: -10px; margin-bottom: -3px",
           tipify(el = icon(name = "clone", lib = "font-awesome", style = "font-size: 17px; margin-right: 5px;"), placement = "right",
                  title = HTML("Map your primary variable against your secondary variable")),
           HTML(paste("<b> Bivariate Mapping: </b>")),
@@ -632,7 +646,8 @@ server <- function(input, output, session) {
       select(-c(geometry)) %>%
       mutate_if(is.numeric, round, digits = 2) %>%
       select(-c("tier", "east_tx_flag")) %>%
-      relocate(pws_name)
+      relocate(pws_name)%>%
+      mutate(pws_name = str_to_title(pws_name))
     renderReactable({
       reactable(TableData,
                 columns = list(
