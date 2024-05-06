@@ -858,8 +858,11 @@ server <- function(input, output, session) {
   # code for report adopted from: https://shiny.posit.co/r/articles/build/generating-reports/
   output$Report <- downloadHandler(
     
+    Sys.sleep(1),
+    
     filename = "Report.html",
     content = function(file_n) {
+      Sys.sleep(1)
       withProgress(message = 'Rendering, please wait!', {
         # this downloads - need to figure out how to add it to the params
         # shinyscreenshot::screenshot(id = "Map")
@@ -870,7 +873,7 @@ server <- function(input, output, session) {
         
         temp_rmd <- file.path(tempdir(), "tx-report.Rmd")
         
-        Sys.sleep(1)
+       
         
         writeLines(report, temp_rmd)
         params <- list(data_p = Controller$data_select,

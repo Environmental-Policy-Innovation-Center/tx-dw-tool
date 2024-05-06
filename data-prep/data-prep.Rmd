@@ -17,6 +17,7 @@ library(tidyverse)
 library(aws.s3)
 library(sf)
 library(data.table)
+library(googlesheets4)
 ```
 
 ## Data lists
