@@ -148,7 +148,7 @@ server <- function(input, output) {
   ## TO DO: Move this to the .RMD and return 1 object with 2 dataframes 
   
   tx_raw <- aws.s3::s3read_using(st_read, 
-                                 object = "state-drinking-water/TX/clean/app/app_test_data_simplified_v2.geojson",
+                                 object = "state-drinking-water/TX/clean/app/app_test_data_simplified.geojson",
                                  bucket = "tech-team-data", 
                                  quiet = TRUE)
   
@@ -632,6 +632,7 @@ server <- function(input, output) {
                   paperwork_violations_5yr = colDef(name = "Non-Health, 5yr"),
                   healthbased_violations_5yr = colDef(name = "Health, 5yr"),
                   total_violations_5yr = colDef(name = "Total, 5yr"),
+                  open_health_viol = colDef(name = "Open Health Violation"),
                   # financial: 
                   total_water_sewer = colDef(name = "Annual Water & Sewer Rate ($)"),
                   dwsrf_times_funded= colDef(name = "Times funded - DW SRF (2009 - 2020)"),
@@ -674,7 +675,8 @@ server <- function(input, output) {
                                                             "paperwork_violations_5yr",
                                                             "paperwork_violations_10yr",
                                                             "total_violations_5yr",
-                                                            "total_violations_10yr")), 
+                                                            "total_violations_10yr", 
+                                                            "open_health_viol")), 
                   colGroup(name = "Financial", columns = c("total_water_sewer", 
                                                            "dwsrf_times_funded", 
                                                            "dwsrf_total_assistance",
