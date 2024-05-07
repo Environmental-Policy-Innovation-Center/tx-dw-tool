@@ -183,7 +183,7 @@ server <- function(input, output, session) {
   # increase by 20
   waitress$inc(20) 
   suppressMessages({data_dict <- aws.s3::s3read_using(read.csv, 
-                                                      object = "state-drinking-water/TX/clean/app/data_dict_v2.csv",
+                                                      object = "state-drinking-water/TX/clean/app/data_dict.csv",
                                                       bucket = "tech-team-data")})
   
   suppressWarnings({report <- aws.s3::s3read_using(readLines,object = "state-drinking-water/TX/clean/app/tx-report.Rmd",
@@ -356,9 +356,10 @@ server <- function(input, output, session) {
                           label_text <- paste0(
                             "<b>", str_to_title(Data$pws_name), "</b> <br>",
                             "<b>", data_dict %>% filter(var_name == "pwsid") %>% pull(clean_name), ": </b> ", Data$pwsid, " <br>",
-                            "<b>", data_dict %>% filter(var_name == "estimate_total_pop") %>% pull(clean_name), ": </b> ", round(Data$estimate_total_pop, 0), " <br>",
-                            "<b>", data_dict %>% filter(var_name == !!(input$VarOne)) %>% pull(clean_name), ": </b> ", round(Data[[input$VarOne]], 2), " <br>",
-                            "<b>", data_dict %>% filter(var_name == !!(input$VarTwo)) %>% pull(clean_name), ": </b> ", round(Data[[input$VarTwo]], 2), " <br>"
+                            "<b>", data_dict %>% filter(var_name == "estimate_total_pop") %>% pull(clean_name), ": </b> ", scales::number(round(Data$estimate_total_pop, 0), big.mark = ","), " <br>",
+                            "<b>", data_dict %>% filter(var_name == "open_health_viol") %>% pull(clean_name), ": </b> ", Data$open_health_viol, "<br>",
+                            "<b>", data_dict %>% filter(var_name == !!(input$VarOne)) %>% pull(clean_name), ": </b> ", number(round(Data[[input$VarOne]], 2), big.mark = ","), " <br>",
+                            "<b>", data_dict %>% filter(var_name == !!(input$VarTwo)) %>% pull(clean_name), ": </b> ", number(round(Data[[input$VarTwo]], 2), big.mark = ","), " <br>"
                           )
                           Data$label_text <- lapply(label_text, htmltools::HTML)
                           
@@ -379,7 +380,7 @@ server <- function(input, output, session) {
                                 var1_label = data_dict %>% filter(var_name == !!(input$VarOne)) %>% pull(clean_name),
                                 var2_label = data_dict %>% filter(var_name == !!(input$VarTwo)) %>% pull(clean_name),
                                 weight = 1,
-                                fillOpacity = 0.7,
+                                fillOpacity = 0.9,
                                 color = "black",
                                 paletteFunction = pals::tolochko.redblue,
                                 group = "Sabs"
@@ -423,6 +424,22 @@ server <- function(input, output, session) {
   # Observe for panel show/hides ##
   #################################
   
+  # Create a reactive timer that fires every 5 minutes
+  timer <- reactiveTimer(5 * 60 * 1000)
+  
+  # Function to print something every 5 minutes
+  printEveryFiveMinutes <- function() {
+    print("Running....")
+    # Add your desired action here
+  }
+  
+  # Observer that executes the action every time the timer fires
+  observe({
+    timer()
+    printEveryFiveMinutes()
+  })
+
+  
   observeEvent(input$Context, {
     toggle("Map", anim = FALSE,animType = "slide")
     toggle("Table", anim = FALSE,animType = "slide")
@@ -437,7 +454,7 @@ server <- function(input, output, session) {
   #### Map #######
   ################
   output$Map <- renderLeaflet({
-    leaflet(options = leafletOptions(minZoom = 1, maxZoom = 12))%>%
+    leaflet(options = leafletOptions(minZoom = 6))%>%
       addProviderTiles(providers$CartoDB.Positron, group = "Streets")%>%
       addProviderTiles(providers$Esri.WorldImagery, group = "Topographic")%>%
       addMapPane("base_polygons", zIndex = 200)%>%
@@ -516,16 +533,22 @@ server <- function(input, output, session) {
     ## Median Household Income
     ## Percent of Color 
     
+    HB <- Controller$data_select %>%
+          filter(open_health_viol == "Yes")%>%
+          pull(open_health_viol)%>%
+          length()
+    
+        
     UtilityCount <- paste("<i>", "Utility Count: </i> <b>", scales::number(length(unique(Controller$data_select$pwsid)), big.mark = ","),"</b>", "<br>")
     Population <- paste("<i>", "Utility Users: </i> <b>", scales::number(sum(Controller$data_select$estimate_total_pop, na.rm = TRUE), big.mark = ","),"</b>", "<br>")
     MHI <- paste("<i> ", "Avg. Median Household Income: </i> <b>", dollar(mean(Controller$data_select$estimate_mhi, na.rm = TRUE)),"</b>", "<br>")
-    POC <- paste("<i>", "Percent of Color: </i> <b>", scales::percent(mean(Controller$data_select$estimate_poc_alone_per, na.rm = TRUE) / 100) ,"</b>", "<br>")
+    HB <- paste("<i>", "Open Health Violations: </i> <b>", HB ,"</b>", "<br>")
     
     tagList(
       HTML(paste("<b> Summary Statistics: </b> <br>")),
       HTML(UtilityCount),
       HTML(Population), 
-      HTML(POC),
+      HTML(HB),
       HTML(MHI)
     )
     
@@ -705,6 +728,7 @@ server <- function(input, output, session) {
                   mean_thresholds_exceeded_cejst = colDef(name = "Mean CEJST Thresholds Exceeded", 
                                                           minWidth = 150),
                   # violations:
+                  open_health_viol = colDef(name = "Open Health Violation"),
                   paperwork_violations_10yr = colDef(name = "Non-Health, 10yr"),
                   healthbased_violations_10yr = colDef(name = "Health, 10yr"),
                   total_violations_10yr = colDef(name = "Total, 10yr"),
@@ -764,7 +788,8 @@ server <- function(input, output, session) {
                                                             "paperwork_violations_5yr",
                                                             "paperwork_violations_10yr",
                                                             "total_violations_5yr",
-                                                            "total_violations_10yr")), 
+                                                            "total_violations_10yr",
+                                                            "open_health_viol")), 
                   colGroup(name = "Financial", columns = c("total_water_sewer", 
                                                            "dwsrf_times_funded", 
                                                            "dwsrf_total_assistance",
