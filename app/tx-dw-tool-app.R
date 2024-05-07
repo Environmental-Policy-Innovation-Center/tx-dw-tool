@@ -880,7 +880,7 @@ server <- function(input, output, session) {
     HTML("<br>"),
     HTML("<b> More Information and Feedback: </b>"),
     HTML("<li> Got feedback? Take our"),
-    tags$a(href=paste("https://forms.gle/2Q4oi84hbSf4k5YA7"), "survey",  target="_blank"),
+    tags$a(href=paste("https://forms.gle/Xjbeur68qukaRmFo7"), "survey",  target="_blank"),
     HTML("and visit our"),
     tags$a(href=paste("https://docs.google.com/document/d/1MvfLFHDhTKoyLuk-cEPwFj8LPZTtdzPLBrkbhbuU38Y/edit"), "public log!",  target="_blank"),
     HTML("<br>"),
