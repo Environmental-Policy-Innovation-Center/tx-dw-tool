@@ -35,6 +35,7 @@ library(future)
 library(tinytex)
 library(googledrive)
 library(waiter)
+library(zip)
 
 
 ## TICKET LIST
@@ -95,7 +96,7 @@ ui <- fluidPage(
             div(
               style = "margin-left: -10px; margin-bottom: -18px",
               tipify(el = icon(name = "filter", lib = "font-awesome"), 
-                     placement = "right", title = HTML("Filter the utilities selected by these categories. Some filters might not effect your data due to insufficent count."))
+                     placement = "right", title = HTML("Filter the utilities selected by these categories. Some filters might not effect your data due to insufficent count. As you change data, map will recolor."))
             ),
             ## we need this lil HTML to space out the text to the right
             HTML("&nbsp;"),
@@ -559,14 +560,14 @@ server <- function(input, output, session) {
     tagList(
       div(style = "display:flex; align-items: center; margin-top: -10px; margin-bottom: -3px",
           tipify(el = icon(name = "clone", lib = "font-awesome", style = "font-size: 17px; margin-right: 5px;"), placement = "right",
-                 title = HTML("Map your primary variable against your secondary variable")),
+                 title = HTML("Map your primary variable against your secondary variable. As you change data, map will recolor")),
           HTML(paste("<b> Bivariate Mapping: </b>")),
           HTML("&nbsp;"), # Adding a non-breaking space for spacing
           div(style = "margin-bottom: -9px; margin-right: -6px;",
               checkboxInput("Bivariate", "", value = FALSE))
       ),
       tipify(el = icon(name = "chart-column", lib = "font-awesome", style = "color: #7ab3d1; font-size: 17px"), placement = "right", 
-             title = HTML("Select a variable to modify the map and histogram below. You can define the variable range by clicking and dragging the histogram. Double click to reset.")),
+             title = HTML("Select a variable to modify the map and histogram below. You can define the variable range by clicking and dragging the histogram. As you change data, map will recolor. Double click to reset.")),
       HTML(paste("<b> Primary Variable: </b>")),
       selectizeInput("VarOne", "", choices = cont_choices, selected = "estimate_mhi", multiple = FALSE)
     )
@@ -607,14 +608,22 @@ server <- function(input, output, session) {
             marker = list(color = "#7ab3d1", line = list(color = "grey", width = 1)))%>% 
       config(displayModeBar = FALSE) %>%
       event_register("plotly_selected")%>%
-      layout( dragmode = "select", margin = m)
+      layout(
+        yaxis = list(
+          title = paste('<i> Utilites </i> '),
+          titlefont = list(size = 12),  # Adjust font size and style
+          tickfont = list(size = 10)  # Adjust tick font size if needed
+        ),
+        dragmode = "select",
+        margin = m
+      )
   })
   
   ## Variable Two Select
   output$VarTwo <- renderUI({
     tagList(
       tipify(el = icon(name = "chart-column", lib = "font-awesome", style = "color: #dd7c8a; font-size: 17px;"), placement = "right",
-             title = HTML("Select a variable to modify the utilities mapped and the histogram below. Click Bivariate to map this variable with your primary variable. You can define the variable range by clicking and dragging the histogram. Double click to reset.")),
+             title = HTML("Select a variable to modify the utilities mapped and the histogram below. Click Bivariate to map this variable with your primary variable. You can define the variable range by clicking and dragging the histogram. As you change data, map will recolor. Double click to reset.")),
       HTML(paste("<b> Secondary Variable: </b>")),
       selectInput("VarTwo", "", choices = cont_choices, selected = "healthbased_violations_5yr", multiple = FALSE)
     )
@@ -652,7 +661,15 @@ server <- function(input, output, session) {
       marker = list(color = "#dd7c8a", line = list(color = "grey", width = 1)))%>% 
       config(displayModeBar = FALSE) %>%
       event_register("plotly_selected")%>%
-      layout(dragmode = "select",  margin = m)
+      layout(
+        yaxis = list(
+          title = paste('<i> Utilites </i> '),
+          titlefont = list(size = 12),  # Adjust font size and style
+          tickfont = list(size = 10)  # Adjust tick font size if needed
+        ),
+        dragmode = "select",
+        margin = m
+      )
   })
   
   ################
@@ -823,7 +840,7 @@ server <- function(input, output, session) {
   
 
   InfoModal <- modalDialog(
-    title = HTML("<b> Texas Community Water System Prioritization Tool - dev 1.0 </b>"),
+    title = HTML("<b> Texas Community Water System Prioritization Tool - Version 1.0 </b>"),
     HTML("<b> Quick Start: </b>"),
     HTML("<br>"),
     icon(name = "map-location-dot", lib = "font-awesome", style = "font-size: 17px"),
@@ -835,7 +852,13 @@ server <- function(input, output, session) {
     icon(name = "chart-column", lib = "font-awesome", style = "size: 17px"),
     HTML("Select a Primary and Secondary variable to map."),
     HTML("<br>"),
-    HTML("Adjust data ranges by click and dragging the chart - double click to reset."),
+    HTML("&emsp;"),
+    HTML("&emsp;"),
+    HTML("- Adjust data ranges by click and dragging the histogram - double click to reset."),
+    HTML("<br>"),
+    HTML("&emsp;"),
+    HTML("&emsp;"),
+    HTML("- Map recolors when using the histogram or changing primary variable."),
     HTML("<br>"),
     icon(name = "clone", lib = "font-awesome", style = "font-size: 17px;"),
     HTML(" Select Bivariate mapping to map both variables."),
@@ -850,23 +873,30 @@ server <- function(input, output, session) {
     HTML("<b> About and Uses: </b>"),
     HTML("<br>"),
     HTML("This application was developed to assist in prioritizing advocacy and technical assistance for community water systems in Texas. 
-         Known as a screening tool [link], the data and insights generated from this tool are to be taken in conjunction with research and local knowledge to inform outreach and not a sole source of information. 
+         Known generally as a screening tool, the data and insights generated from this tool are to be taken in conjunction with research and local knowledge to inform outreach and not a sole source of information. 
          This tool can be used to identify utilities based on a user determined set of characteristics. Keep in mind, these data are a small component of utility operations and drinking water user experience. Generally speaking, utilities are working to balance quality water, low rates, and financial stability, all while staying within regulatory compliance. 
          This balancing act can be difficult for under-resourced utilities"),
     HTML("<br>"),
     HTML("<br>"),
     HTML("<b> More Information and Feedback: </b>"),
-    HTML("<li> To learn more about how to use this tool, visit our vignettes [link].   </li>"),
-    HTML("<li> For documentation, methods, and reproducing this application, see our Github [link] </li>"),
-    HTML("<li> Downloading the complete dataset can be found here [link].  </li> "),
-    HTML("<li> To read our deep-dive report on East Texas, click here [link].  </li>"),
-    HTML("<li> Got feedback? Take our survey! [link] "),
+    HTML("<li> Got feedback? Take our"),
+    tags$a(href=paste("https://forms.gle/2Q4oi84hbSf4k5YA7"), "survey",  target="_blank"),
+    HTML("and visit our"),
+    tags$a(href=paste("https://docs.google.com/document/d/1MvfLFHDhTKoyLuk-cEPwFj8LPZTtdzPLBrkbhbuU38Y/edit"), "public log!",  target="_blank"),
     HTML("<br>"),
+    HTML("<li> To learn more about how to use this tool, visit our vignettes [comming v1.1].   </li>"),
+    HTML("<li> To download the complete dataset, click here [comming v1.1].  </li> "),
+    HTML("<li> For documentation, methods, and reproducing this application, see our Github [comming v1.1]. </li>"),
     HTML("<br>"),
     HTML("<b> Attribution and License:  </b>"),
     HTML("<br>"),
-    HTML("Developed in partnership with Mitchell and Temple foundations by Environmental Policy Innovation Center (EPIC). EPIC makes no assurances to the accuracy of the tools data. 
-         All underlying code, methods, and data are available at our Github under a Creative Commons License."),
+    HTML("Developed in partnership with "),tags$a(href=paste("https://cgmf.org/p/home.html"), "Cynthia & George Mitchell",  target="_blank"),
+    HTML("and"), tags$a(href=paste("https://tlltemple.foundation/"), "T.L.L Temple",  target="_blank"),
+    HTML("foundations by"), tags$a(href=paste("policyinnovation.org"), "Environmental Policy Innovation Center (EPIC). ",  target="_blank"), 
+    HTML("EPIC makes no assurances to the accuracy of the tools data. All underlying code, methods, and data are available at our Github [comming v1.1] under a Creative Commons License."),
+    HTML("<br>"),
+    HTML("<br>"),
+    HTML("<i>", "Last updated: ", "May 7, 2024", "</i>"),
     easyClose = FALSE,
     footer = modalButton("Close"),
   )
@@ -888,6 +918,7 @@ server <- function(input, output, session) {
     content = function(file_n) {
       Sys.sleep(1)
       withProgress(message = 'Rendering, please wait!', {
+        ## prints to ensure data is available (issue with downloading not working on first go)
         print(nrow(Controller$data_select))
         print(input$VarOne)
         print(input$VarTwo)
@@ -899,8 +930,6 @@ server <- function(input, output, session) {
         on.exit(setwd(owd))
         
         temp_rmd <- file.path(tempdir(), "tx-report.Rmd")
-        
-       
         
         writeLines(report, temp_rmd)
         params <- list(data_p = Controller$data_select,
@@ -919,7 +948,9 @@ output$downloadData <- downloadHandler(
   filename = "tx-dw-app.zip",
   
   content = function(file) {
-    
+    ## prints to ensure data is available (issue with downloading not working on first go)
+    Sys.sleep(1)
+    print(nrow(Controller$data_select))
     drive_deauth()
      
     # add data dictionary: 
