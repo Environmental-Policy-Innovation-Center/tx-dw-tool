@@ -55,7 +55,8 @@ RUN install2.r --error \
     knitr \
     tinytex \
     googledrive \
-    waiter
+    waiter \
+    zip
 
 # Install the bivariatechoropleths package from GitHub
 RUN R -e "remotes::install_github('chris31415926535/bivariatechoropleths')"
