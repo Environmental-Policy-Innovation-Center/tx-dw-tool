@@ -187,9 +187,10 @@ server <- function(input, output, session) {
                                                       object = "state-drinking-water/TX/clean/app/data_dict.csv",
                                                       bucket = "tech-team-data")})
   
+
   suppressWarnings({report <- aws.s3::s3read_using(readLines,object = "state-drinking-water/TX/clean/app/tx-report.Rmd",
                                                    bucket = "tech-team-data")})
-  
+  drive_deauth()
   dictionary_csv <- drive_download("https://docs.google.com/spreadsheets/d/1bzNPxhL-l6DeGElhG1c70Of8DGAQasMDUuX3rPHVe2A/edit#gid=0",
                                    file.path(tempdir(), "tx-app-data-dictionary.csv"), overwrite = TRUE)
   
