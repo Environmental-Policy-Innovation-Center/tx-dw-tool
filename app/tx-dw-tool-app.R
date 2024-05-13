@@ -189,6 +189,13 @@ server <- function(input, output, session) {
   
   suppressWarnings({report <- aws.s3::s3read_using(readLines,object = "state-drinking-water/TX/clean/app/tx-report.Rmd",
                                                    bucket = "tech-team-data")})
+  
+  dictionary_csv <- drive_download("https://docs.google.com/spreadsheets/d/1bzNPxhL-l6DeGElhG1c70Of8DGAQasMDUuX3rPHVe2A/edit#gid=0",
+                                   file.path(tempdir(), "tx-app-data-dictionary.csv"), overwrite = TRUE)
+  
+  # add methods doc:
+  methods_doc <- drive_download("https://docs.google.com/document/d/1va2Iq2oJxnqiwgNHD4bWpXKxdWbq-TYoYkosj1oz_JU/edit",
+                                file.path(tempdir(),"tx-app-methods.docx"), overwrite = TRUE)
   ################
   ### Variables ##
   ################
@@ -916,7 +923,7 @@ server <- function(input, output, session) {
     
     filename = "Report.html",
     content = function(file_n) {
-      Sys.sleep(1)
+      Sys.sleep(4)
       withProgress(message = 'Rendering, please wait!', {
         ## prints to ensure data is available (issue with downloading not working on first go)
         print(nrow(Controller$data_select))
@@ -949,17 +956,17 @@ output$downloadData <- downloadHandler(
   
   content = function(file) {
     ## prints to ensure data is available (issue with downloading not working on first go)
-    Sys.sleep(1)
+    Sys.sleep(4)
     print(nrow(Controller$data_select))
     drive_deauth()
      
-    # add data dictionary: 
-    dictionary_csv <- drive_download("https://docs.google.com/spreadsheets/d/1bzNPxhL-l6DeGElhG1c70Of8DGAQasMDUuX3rPHVe2A/edit#gid=0", 
-                                     file.path(tempdir(), "tx-app-data-dictionary.csv"), overwrite = TRUE)
-    
-    # add methods doc: 
-    methods_doc <- drive_download("https://docs.google.com/document/d/1va2Iq2oJxnqiwgNHD4bWpXKxdWbq-TYoYkosj1oz_JU/edit", 
-                                   file.path(tempdir(),"tx-app-methods.docx"), overwrite = TRUE)
+   # add data dictionary:
+    # dictionary_csv <- drive_download("https://docs.google.com/spreadsheets/d/1bzNPxhL-l6DeGElhG1c70Of8DGAQasMDUuX3rPHVe2A/edit#gid=0",
+    #                                  file.path(tempdir(), "tx-app-data-dictionary.csv"), overwrite = TRUE)
+    # 
+    # # add methods doc:
+    # methods_doc <- drive_download("https://docs.google.com/document/d/1va2Iq2oJxnqiwgNHD4bWpXKxdWbq-TYoYkosj1oz_JU/edit",
+    #                                file.path(tempdir(),"tx-app-methods.docx"), overwrite = TRUE)
     
     # if statement to handle different file formats: 
     if(input$downloadType == ".csv") {
