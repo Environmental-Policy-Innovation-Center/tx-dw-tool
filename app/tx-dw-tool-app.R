@@ -919,6 +919,27 @@ server <- function(input, output, session) {
   ################
 
   # code for report adopted from: https://shiny.posit.co/r/articles/build/generating-reports/
+  
+  reportGenerator <- function(data, var_one, var_two)
+  {
+    temp_dir <- tempdir()
+    owd <- setwd(temp_dir)
+    on.exit(setwd(owd))
+    
+    temp_rmd <- file.path(tempdir(), "tx-report.Rmd")
+    
+    writeLines(report, temp_rmd)
+    params <- list(data_p = data,
+                   var_one = var_one,
+                   var_two = var_two)
+    
+    out <- rmarkdown::render("tx-report.Rmd",
+                             params = params,
+                             envir = new.env(parent = globalenv()))
+    
+    
+    return(out)
+  }
   output$Report <- downloadHandler(
     Sys.sleep(1),
     
@@ -933,20 +954,22 @@ server <- function(input, output, session) {
         # this downloads - need to figure out how to add it to the params
         # shinyscreenshot::screenshot(id = "Map")
         # src <- normalizePath("tx-report.Rmd")
-        temp_dir <- tempdir()
-        owd <- setwd(temp_dir)
-        on.exit(setwd(owd))
+        # temp_dir <- tempdir()
+        # owd <- setwd(temp_dir)
+        # on.exit(setwd(owd))
+        # 
+        # temp_rmd <- file.path(tempdir(), "tx-report.Rmd")
+        # 
+        # writeLines(report, temp_rmd)
+        # params <- list(data_p = Controller$data_select,
+        #                var_one = input$VarOne,
+        #                var_two = input$VarTwo)
+        # out <- rmarkdown::render("tx-report.Rmd",
+        #                          params = params,
+        #                          envir = new.env(parent = globalenv()))
         
-        temp_rmd <- file.path(tempdir(), "tx-report.Rmd")
         
-        writeLines(report, temp_rmd)
-        params <- list(data_p = Controller$data_select,
-                       var_one = input$VarOne,
-                       var_two = input$VarTwo)
-        out <- rmarkdown::render("tx-report.Rmd",
-                                 params = params,
-                                 envir = new.env(parent = globalenv()))
-        file.rename(out, file_n)
+        file.rename(reportGenerator(Controller$data_select,input$VarOne,input$VarTwo), file_n)
       })
     })
   
