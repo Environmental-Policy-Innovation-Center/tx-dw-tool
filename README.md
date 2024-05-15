@@ -1,3 +1,5 @@
+![](epic-logo-transparent.png)
+
 # Texas Community Water System Prioritization Tool
 
 This repository contains the code for the [Texas Community Water System Prioritization Tool](https://tx-app.policyinnovation.info/). This application was developed to assist in prioritizing advocacy and technical assistance for community water systems in Texas. Known generally as a screening tool, the data and insights generated from this tool are to be taken in conjunction with research and local knowledge to inform outreach and not a sole source of information. This tool can be used to identify utilities based on a user determined set of characteristics. Keep in mind, these data are a small component of utility operations and drinking water user experience. Generally speaking, utilities are working to balance quality water, low rates, and financial stability, all while staying within regulatory compliance. This balancing act can be difficult for under-resourced utilities
