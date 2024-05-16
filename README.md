@@ -9,10 +9,10 @@ This repository contains the code for the [Texas Community Water System Prioriti
 #### [Install CRAN](https://cran.r-project.org/)
 #### [Install R Studio](https://www.rstudio.com/products/rstudio/download/)
 Open tx-dw-tool.app.R and click 'Run App'
-# Shinyapps.io 
+## Shinyapps.io 
 To publish your own application, use the whirlpool icon in Rstudio to publish via [Shinyapps.io](https://www.shinyapps.io/). 
 You can see a step by step process of this [here](https://www.r-bloggers.com/2021/05/push-button-publishing-for-shiny-apps/).
-# Docker (for Mac)
+## Docker (for Mac)
 Download and install [Docker](https://www.docker.com/).
 Open a terminal
 cd to the working directory
