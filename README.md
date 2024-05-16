@@ -17,10 +17,9 @@ Download and install [Docker](https://www.docker.com/).
 Open a terminal
 cd to the working directory
 `docker build --tag [tx-app] .`
-Grab a cup off coffee while it compiles 
-`docker images` to see built containers and verify your [tx-app] built succesfully. 
-`docker run -p 2000:2000 [tx-app]`
-
+Grab a cup off coffee while it compiles.
+Type `docker images` to see built containers and verify your [tx-app] built succesfully. 
+Type `docker run -p 2000:2000 [tx-app]` to run the application. 
 
 ## Important links 
 The repository for the data collection and analysis that feeds into this tool is available [here](https://github.com/Environmental-Policy-Innovation-Center/TX-drinking-water). For important context and descriptions of data used within this repository, please review our [data dictionary](https://docs.google.com/spreadsheets/d/1bzNPxhL-l6DeGElhG1c70Of8DGAQasMDUuX3rPHVe2A/edit#gid=0) and [methodology](https://docs.google.com/document/d/1va2Iq2oJxnqiwgNHD4bWpXKxdWbq-TYoYkosj1oz_JU/edit).
