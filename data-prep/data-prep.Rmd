@@ -429,7 +429,7 @@ data.table::fwrite(data_dict, file.path(tempdir(), filename))
 
 put_object(
   file = file.path(tempdir(), filename),
-  object = "/state-drinking-water/TX/clean/app/data_dict.csv",
+  object = "/state-drinking-water/TX/clean/app/data_dict_v2.csv",
   bucket = "tech-team-data",
   acl = "public-read"
 )

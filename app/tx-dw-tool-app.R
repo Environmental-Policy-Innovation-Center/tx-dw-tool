@@ -38,20 +38,15 @@ library(waiter)
 library(zip)
 
 
-## TICKET LIST
-
 ###########
 ### UI #### 
 ###########
-
-#######
-
 ui <- fluidPage(
   
   ## Global CSS alterations 
   tags$head(
     tags$style(
-      ## Spacing on selectize control and rounding corners on plotly chart 
+      ## Spacing on selective control and rounding corners on plotly chart 
       HTML("
       .selectize-control {
         margin-top: -20px; 
@@ -184,7 +179,7 @@ server <- function(input, output, session) {
   # increase by 20
   waitress$inc(20) 
   suppressMessages({data_dict <- aws.s3::s3read_using(read.csv, 
-                                                      object = "state-drinking-water/TX/clean/app/data_dict.csv",
+                                                      object = "state-drinking-water/TX/clean/app/data_dict_v2.csv",
                                                       bucket = "tech-team-data")})
   
 
@@ -250,11 +245,20 @@ server <- function(input, output, session) {
   cont_dict <- data_dict %>%
     filter(cont_var == "yes")
   
+  cont_order <- c(
+    "Calculated",
+    "Water Delivery System",
+    "Financial",
+    "Socioeconomic",
+    "Environmental Justice Indicators"
+  )
   
   cont_choices <- cont_dict %>%
     split(.$category) %>%
     lapply(function(x) setNames(x$var_name, x$clean_name))
   
+  cont_choices <- cont_choices[match(cont_order, names(cont_choices))]
+
   # increase by 20
 
   waitress$close() 
@@ -848,7 +852,7 @@ server <- function(input, output, session) {
   
 
   InfoModal <- modalDialog(
-    title = HTML("<b> Texas Community Water System Prioritization Tool - Version 1.0 </b>"),
+    title = HTML("<b> Texas Community Water System Prioritization Tool - Version 1.1 </b>"),
     HTML("<b> Quick Start: </b>"),
     HTML("<br>"),
     icon(name = "map-location-dot", lib = "font-awesome", style = "font-size: 17px"),
@@ -880,10 +884,9 @@ server <- function(input, output, session) {
     HTML("<br>"),
     HTML("<b> About and Uses: </b>"),
     HTML("<br>"),
-    HTML("This application was developed to assist in prioritizing advocacy and technical assistance for community water systems in Texas. 
-         Known generally as a screening tool, the data and insights generated from this tool are to be taken in conjunction with research and local knowledge to inform outreach and not a sole source of information. 
-         This tool can be used to identify utilities based on a user determined set of characteristics. Keep in mind, these data are a small component of utility operations and drinking water user experience. Generally speaking, utilities are working to balance quality water, low rates, and financial stability, all while staying within regulatory compliance. 
-         This balancing act can be difficult for under-resourced utilities"),
+    HTML("This application was developed to assist in prioritizing advocacy and technical assistance for community water systems in Texas. Known generally as a screening tool, the data and insights generated from this tool are to be taken in conjunction with research and local knowledge to inform outreach and not a sole source of information. 
+         This tool can be used to identify utilities based on a user-determined set of characteristics. Keep in mind, these data are a small component of utility operations and drinking water user experience. Generally speaking, utilities are working to balance quality water, low rates, and financial stability, all while staying within regulatory compliance. 
+         This balancing act can be difficult for under-resourced utilities."),
     HTML("<br>"),
     HTML("<br>"),
     HTML("<b> More Information and Feedback: </b>"),
@@ -892,19 +895,24 @@ server <- function(input, output, session) {
     HTML("and visit our"),
     tags$a(href=paste("https://docs.google.com/document/d/1MvfLFHDhTKoyLuk-cEPwFj8LPZTtdzPLBrkbhbuU38Y/edit"), "public log!",  target="_blank"),
     HTML("<br>"),
-    HTML("<li> To learn more about how to use this tool, visit our vignettes [comming v1.1].   </li>"),
-    HTML("<li> To download the complete dataset, click here [comming v1.1].  </li> "),
-    HTML("<li> For documentation, methods, and reproducing this application, see our Github [comming v1.1]. </li>"),
+    HTML("<li> To learn more about how to use this tool, visit our"),
+    tags$a(href=paste("https://docs.google.com/document/d/1MvfLFHDhTKoyLuk-cEPwFj8LPZTtdzPLBrkbhbuU38Y/edit"), "getting started",  target="_blank"),
+    HTML("and"),
+    tags$a(href=paste("https://docs.google.com/document/d/1MvfLFHDhTKoyLuk-cEPwFj8LPZTtdzPLBrkbhbuU38Y/edit"), "advanced",  target="_blank"),
+    HTML("vignettes."),
+    HTML("<li> For documentation, methods, and reproducing this application, see our"),
+    tags$a(href=paste("https://github.com/Environmental-Policy-Innovation-Center/tx-dw-tool"), "Github",  target="_blank"),
+    HTML("<br>"),
     HTML("<br>"),
     HTML("<b> Attribution and License:  </b>"),
     HTML("<br>"),
     HTML("Developed in partnership with "),tags$a(href=paste("https://cgmf.org/p/home.html"), "Cynthia & George Mitchell",  target="_blank"),
     HTML("and"), tags$a(href=paste("https://tlltemple.foundation/"), "T.L.L Temple",  target="_blank"),
-    HTML("foundations by"), tags$a(href=paste("policyinnovation.org"), "Environmental Policy Innovation Center (EPIC). ",  target="_blank"), 
-    HTML("EPIC makes no assurances to the accuracy of the tools data. All underlying code, methods, and data are available at our Github [comming v1.1] under a Creative Commons License."),
+    HTML("foundations by"), tags$a(href=paste("https://policyinnovation.org"), "Environmental Policy Innovation Center (EPIC). ",  target="_blank"), 
+    HTML("EPIC makes no assurances to the accuracy of the tools data. All underlying code, methods, and data are available under a Creative Commons License."),
     HTML("<br>"),
     HTML("<br>"),
-    HTML("<i>", "Last updated: ", "May 7, 2024", "</i>"),
+    HTML("<i>", "Last updated: ", "May 16, 2024", "</i>"),
     easyClose = FALSE,
     footer = modalButton("Close"),
   )
@@ -919,7 +927,6 @@ server <- function(input, output, session) {
   ################
 
   # code for report adopted from: https://shiny.posit.co/r/articles/build/generating-reports/
-  
   reportGenerator <- function(data, var_one, var_two)
   {
     temp_dir <- tempdir()
@@ -936,8 +943,6 @@ server <- function(input, output, session) {
     out <- rmarkdown::render("tx-report.Rmd",
                              params = params,
                              envir = new.env(parent = globalenv()))
-    
-    
     return(out)
   }
   output$Report <- downloadHandler(
@@ -951,24 +956,7 @@ server <- function(input, output, session) {
         print(nrow(Controller$data_select))
         print(input$VarOne)
         print(input$VarTwo)
-        # this downloads - need to figure out how to add it to the params
-        # shinyscreenshot::screenshot(id = "Map")
-        # src <- normalizePath("tx-report.Rmd")
-        # temp_dir <- tempdir()
-        # owd <- setwd(temp_dir)
-        # on.exit(setwd(owd))
-        # 
-        # temp_rmd <- file.path(tempdir(), "tx-report.Rmd")
-        # 
-        # writeLines(report, temp_rmd)
-        # params <- list(data_p = Controller$data_select,
-        #                var_one = input$VarOne,
-        #                var_two = input$VarTwo)
-        # out <- rmarkdown::render("tx-report.Rmd",
-        #                          params = params,
-        #                          envir = new.env(parent = globalenv()))
-        
-        
+
         file.rename(reportGenerator(Controller$data_select,input$VarOne,input$VarTwo), file_n)
       })
     })
