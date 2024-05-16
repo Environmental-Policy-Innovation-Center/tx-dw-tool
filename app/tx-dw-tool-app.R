@@ -183,13 +183,9 @@ server <- function(input, output, session) {
                                                   quiet = TRUE)
   # increase by 20
   waitress$inc(20) 
-  # suppressMessages({data_dict <- aws.s3::s3read_using(read.csv,
-  #                                                     object = "state-drinking-water/TX/clean/app/data_dict.csv",
-  #                                                     bucket = "tech-team-data")})
-  drive_deauth()
-  data_dict <- drive_download("https://docs.google.com/spreadsheets/d/1jhf-aNJB_91td4YvxaQS04olGYr4IDWyC-dC7UJP5FA/edit#gid=0",
-                                   file.path(tempdir(), "tx-app-data-dictionary.csv"), overwrite = TRUE)
-  data_dict <-read.csv("/var/folders/p6/hckdvdq909342spvcznjk_gm0000gn/T//RtmpCwyyFI/tx-app-data-dictionary.csv")
+  suppressMessages({data_dict <- aws.s3::s3read_using(read.csv,
+                                                      object = "state-drinking-water/TX/clean/app/data_dict.csv",
+                                                      bucket = "tech-team-data")})
   
   suppressWarnings({report <- aws.s3::s3read_using(readLines,object = "state-drinking-water/TX/clean/app/tx-report.Rmd",
                                                    bucket = "tech-team-data")})
@@ -705,18 +701,18 @@ server <- function(input, output, session) {
     # grabbing column groups for the table: 
     colgroups <- data_dict %>% 
       filter(clean_name %in% names(TableData)) %>%
-      group_by(table_group) %>%
+      group_by(category) %>%
       reframe(clean_name) 
     
     # rendering reactable: 
     renderReactable({
       reactable(TableData,
                 columnGroups = list(
-                  colGroup(name = "Utility", columns = colgroups[colgroups$table_group == "Utility",]$clean_name), 
-                  colGroup(name = "Socioeconomic", columns = colgroups[colgroups$table_group == "Socioeconomic",]$clean_name),
-                  colGroup(name = "Violations", columns = colgroups[colgroups$table_group == "Violations",]$clean_name), 
-                  colGroup(name = "Financial", columns = colgroups[colgroups$table_group == "Financial",]$clean_name),
-                  colGroup(name = "Environmental", columns = colgroups[colgroups$table_group == "Environmental",]$clean_name)),
+                  colGroup(name = "Water Delivery System", columns = colgroups[colgroups$category == "Water Delivery System",]$clean_name), 
+                  colGroup(name = "Calculated", columns = colgroups[colgroups$category == "Calculated",]$clean_name), 
+                  colGroup(name = "Socioeconomic", columns = colgroups[colgroups$category == "Socioeconomic",]$clean_name),
+                  colGroup(name = "Financial", columns = colgroups[colgroups$category == "Financial",]$clean_name),
+                  colGroup(name = "Environmental", columns = colgroups[colgroups$category == "Environmental",]$clean_name)),
                 highlight = TRUE,
                 defaultColDef = colDef(minWidth = 150), 
                 bordered = TRUE,
