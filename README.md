@@ -21,12 +21,12 @@ Grab a cup off coffee while it compiles.
 Type `docker images` to see built containers and verify your [tx-app] built succesfully. 
 Type `docker run -p 2000:2000 [tx-app]` to run the application. 
 
-## Important links 
+# Important links 
 The repository for the data collection and analysis that feeds into this tool is available [here](https://github.com/Environmental-Policy-Innovation-Center/TX-drinking-water). For important context and descriptions of data used within this repository, please review our [data dictionary](https://docs.google.com/spreadsheets/d/1bzNPxhL-l6DeGElhG1c70Of8DGAQasMDUuX3rPHVe2A/edit#gid=0) and [methodology](https://docs.google.com/document/d/1va2Iq2oJxnqiwgNHD4bWpXKxdWbq-TYoYkosj1oz_JU/edit).
 
-## Information and Feedback:
+# Information and Feedback:
 -   Got feedback? Take our [survey](https://forms.gle/Xjbeur68qukaRmFo7) and visit our [public log](https://docs.google.com/document/d/1MvfLFHDhTKoyLuk-cEPwFj8LPZTtdzPLBrkbhbuU38Y/edit)!
 -   To learn more about how to use this tool, visit our vignettes [coming soon!].
 
-## Attribution and License:
+# Attribution and License:
 Developed in partnership with [Cynthia & George Mitchell](https://cgmf.org/p/home.html) and [T.L.L Temple](https://tlltemple.foundation/) foundations by [Environmental Policy Innovation Center (EPIC)](https://www.policyinnovation.org/). EPIC makes no assurances to the accuracy of the data. All underlying code, methods, and data are available under a Creative Commons License.
