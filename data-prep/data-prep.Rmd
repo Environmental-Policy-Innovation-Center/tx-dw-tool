@@ -396,6 +396,30 @@ cejst_tidy <- cejst_interpolate %>%
 # adding to extra vars df: 
 extra_vars_final <- merge(extra_vars_v1, cejst_tidy, all.x = T) 
 
+
+# Active health-based violations ###############################################
+sdwis <- wds$sdwis
+
+hbv_pwsid_summary <- sdwis %>%
+  filter(is_health_based_ind == "Y") %>%
+  mutate(open_health_viol = case_when(rtc_date == "" ~ "Yes",
+                                      TRUE ~ "No")) %>%
+  select(pwsid, open_health_viol) %>%
+  filter(open_health_viol == "Yes") %>%
+  unique() %>%
+  filter(pwsid %in% sabs$pwsid)
+
+extra_vars_final <- merge(extra_vars_final, hbv_pwsid_summary, all.x = T) %>%
+  mutate(open_health_viol = case_when(is.na(open_health_viol) ~ "No", 
+                               TRUE ~ open_health_viol))
+
+# Year funded ##################################################################
+srf_year_funded <- dw_srf %>%
+  group_by(pwsid) %>%
+  summarize(last_year_funded = max(year))
+
+extra_vars_final <- merge(extra_vars_final, srf_year_funded, all.x = T) %>%
+  relocate(last_year_funded, .after = dwsrf_median_assistance)
 ```
 
 ## Joining to simplified GeoJson for quicker load times on app

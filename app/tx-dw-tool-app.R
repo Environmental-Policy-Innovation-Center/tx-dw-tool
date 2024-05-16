@@ -157,7 +157,7 @@ server <- function(input, output, session) {
   # increase by 20
   waitress$inc(20) 
   tx_raw <- aws.s3::s3read_using(st_read, 
-                                 object = "state-drinking-water/TX/clean/app/app_test_data_simplified_v2.geojson",
+                                 object = "state-drinking-water/TX/clean/app/app_test_data_simplified.geojson",
                                  bucket = "tech-team-data", 
                                  quiet = TRUE)
   
@@ -178,7 +178,8 @@ server <- function(input, output, session) {
                                                   quiet = TRUE)
   # increase by 20
   waitress$inc(20) 
-  suppressMessages({data_dict <- aws.s3::s3read_using(read.csv, 
+
+  suppressMessages({data_dict <- aws.s3::s3read_using(read.csv,
                                                       object = "state-drinking-water/TX/clean/app/data_dict_v2.csv",
                                                       bucket = "tech-team-data")})
   
@@ -224,6 +225,7 @@ server <- function(input, output, session) {
   event_one <- reactive(event_data(event = "plotly_selected", source = "a", priority = "event"))
   event_two <- reactive(event_data(event = "plotly_selected", source = "b", priority = "event"))
 
+  
   
   ## Building categorical filters here so they can be accessed in pull down and logic handler 
   ## TO DO: Set these columns to by a part of the Controller - potentially as an s3 or store the app data as a list - with this as an additional dataframe
@@ -305,7 +307,6 @@ server <- function(input, output, session) {
                         
                         ## Filter data based on selected geography
                         if(!str_detect(paste(input$Geography, collapse = "|"), "All Texas")) {
-          
 
                           selected_inputs <- unlist(str_split(input$Geography, ","))
                           
@@ -452,7 +453,6 @@ server <- function(input, output, session) {
     printEveryFiveMinutes()
   })
 
-  
   observeEvent(input$Context, {
     toggle("Map", anim = FALSE,animType = "slide")
     toggle("Table", anim = FALSE,animType = "slide")
@@ -550,8 +550,9 @@ server <- function(input, output, session) {
           filter(open_health_viol == "Yes")%>%
           pull(open_health_viol)%>%
           length()
+
     
-        
+    
     UtilityCount <- paste("<i>", "Utility Count: </i> <b>", scales::number(length(unique(Controller$data_select$pwsid)), big.mark = ","),"</b>", "<br>")
     Population <- paste("<i>", "Utility Users: </i> <b>", scales::number(sum(Controller$data_select$estimate_total_pop, na.rm = TRUE), big.mark = ","),"</b>", "<br>")
     MHI <- paste("<i> ", "Avg. Median Household Income: </i> <b>", dollar(mean(Controller$data_select$estimate_mhi, na.rm = TRUE)),"</b>", "<br>")
@@ -588,7 +589,7 @@ server <- function(input, output, session) {
   
   output$VarOneMinMax <- renderUI({
     req(Controller$data_select)
-  #  checkbox
+
     event_one_max <- if (!is.null(event_one())) max(event_one()$x, na.rm = TRUE) else max(Controller$data_select %>% pull(!!input$VarOne), na.rm = TRUE)
     event_one_min <- if (!is.null(event_one())) min(event_one()$x, na.rm = TRUE) else min(Controller$data_select%>% pull(!!input$VarOne), na.rm = TRUE)
     
@@ -599,6 +600,7 @@ server <- function(input, output, session) {
         HTML(min),
         HTML(max),
       )
+
   })
   
   # Variable One Hist
@@ -671,6 +673,7 @@ server <- function(input, output, session) {
     plot_ly(x =  Controller$data_select %>% pull(!!input$VarTwo), type = "histogram", source = "b", 
             nbinsx = 50, 
       marker = list(color = "#dd7c8a", line = list(color = "grey", width = 1)))%>% 
+
       config(displayModeBar = FALSE) %>%
       event_register("plotly_selected")%>%
       layout(
@@ -693,145 +696,40 @@ server <- function(input, output, session) {
   
   output$Table <- renderUI({
     req(Controller$data_select)
-    TableData <- Controller$data_select %>%
+
+    # grabbing data for the table: 
+    TableData <-  Controller$data_select %>%
       data.frame()%>%
       select(-c(geometry)) %>%
       mutate_if(is.numeric, round, digits = 2) %>%
       select(-c("tier", "east_tx_flag")) %>%
       relocate(pws_name)%>%
       mutate(pws_name = str_to_title(pws_name))
+
+    # changing column names to human-readable - with the help of this
+    # post: https://stackoverflow.com/questions/59314285/selectively-rename-r-data-frame-column-names-using-a-key-value-pair-dictionary
+    colnames(TableData) <- dplyr::recode(
+      colnames(TableData), 
+      !!!setNames(as.character(data_dict$clean_name), data_dict$var_name)
+    )
+    
+    # grabbing column groups for the table: 
+    colgroups <- data_dict %>% 
+      filter(clean_name %in% names(TableData)) %>%
+      group_by(category) %>%
+      reframe(clean_name) 
+    
+    # rendering reactable: 
     renderReactable({
       reactable(TableData,
-                columns = list(
-                  # utility characteristics:
-                  pwsid = colDef(aggregate = "unique",
-                                 name = "ID"),
-                  pws_name = colDef(aggregate = "unique",
-                                    name = "Water System Name", 
-                                    minWidth = 150),
-                  county_served = colDef(aggregate = "unique",
-                                         name = "County"),
-                  regions = colDef(aggregate = "unique",
-                                   name = "Region"),
-                  primary_source_code = colDef(aggregate = "unique",
-                                               name = "Source"),
-                  owner_type_description = colDef(aggregate = "unique",
-                                                  name = "Owner"),
-                  pop_catagories = colDef(aggregate = "unique",
-                                          name = "Pop Cat"),
-                  pop_density = colDef(name = "Pop Density"),
-                  area_miles = colDef(name = "Area (mi)"),
-                  # socioeconomic:
-                  estimate_mhi = colDef(name = "MHI ($)"),
-                  estimate_total_pop = colDef(name = "Population", 
-                                              minWidth = 150),
-                  estimate_white_alone_per = colDef(name = "% White Alone", 
-                                                    minWidth = 150),
-                  estimate_black_alone_per= colDef(name = "% Black Alone", 
-                                                   minWidth = 150),
-                  estimate_AIAN_alone_per= colDef(name = "% American Indian and Alaskan Native Alone", 
-                                                  minWidth = 150),
-                  estimate_asian_alone_per = colDef(name = "% Asian Alone", 
-                                                    minWidth = 150),
-                  estimate_NAPI_alone_per= colDef(name = "% Native American and Pacific Islander Alone", 
-                                                  minWidth = 150),
-                  estimate_other_alone_per= colDef(name = "% Other Race Alone", 
-                                                   minWidth = 150),
-                  estimate_mixed_alone_per= colDef(name = "% Mixed Race Alone", 
-                                                   minWidth = 150),
-                  estimate_poc_alone_per = colDef(name = "%POC", 
-                                                  minWidth = 150),
-                  estimate_hisp_alone_per = colDef(name = "% Latino/a", 
-                                                   minWidth = 150),
-                  estimate_ageunder_5_per = colDef(name = "% Age < 5", 
-                                                   minWidth = 150),
-                  estimate_bachelors_per = colDef(name = "% Bachelor's Degree", 
-                                                  minWidth = 150),
-                  estimate_prof_degree_per = colDef(name = "% Professional Degree", 
-                                                    minWidth = 150),
-                  estimate_laborforce_unemployed_per = colDef(name = "% Unemployment", 
-                                                              minWidth = 150),
-                  estimate_hh_below_pov_per = colDef(name = "% Poverty"),
-                  percent_disadv_cejst= colDef(name = "% Service Area that is Disadvantaged", 
-                                               minWidth = 150),
-                  mean_thresholds_exceeded_cejst = colDef(name = "Mean CEJST Thresholds Exceeded", 
-                                                          minWidth = 150),
-                  # violations:
-                  open_health_viol = colDef(name = "Open Health Violation"),
-                  paperwork_violations_10yr = colDef(name = "Non-Health, 10yr"),
-                  healthbased_violations_10yr = colDef(name = "Health, 10yr"),
-                  total_violations_10yr = colDef(name = "Total, 10yr"),
-                  paperwork_violations_5yr = colDef(name = "Non-Health, 5yr"),
-                  healthbased_violations_5yr = colDef(name = "Health, 5yr"),
-                  total_violations_5yr = colDef(name = "Total, 5yr"),
-                  # financial: 
-                  total_water_sewer = colDef(name = "Annual Water & Sewer Rate ($)", 
-                                             minWidth = 150),
-                  dwsrf_times_funded= colDef(name = "Times funded - DW SRF (2009 - 2020)", 
-                                             minWidth = 150),
-                  dwsrf_total_assistance= colDef(name = "Total assistance - DW SRF (2009 - 2020)", 
-                                                 minWidth = 150),
-                  dwsrf_total_pf= colDef(name = "Total principal forgiveness - DW SRF (2009 - 2020)", 
-                                         minWidth = 150),
-                  dwsrf_median_assistance= colDef(name = "Median assistance - DW SRF (2009 - 2020)", 
-                                                  minWidth = 150),
-                  # environmental: 
-                  limited_water_use = colDef(name = "Limited Water Notices (2023-2024)", 
-                                             minWidth = 150),
-                  total_bwn= colDef(name = "Boil Water Notices Since 2018", 
-                                    minWidth = 150),
-                  cvi_weighted_score = colDef(name = "Climate Vulnerability Index", 
-                                              minWidth = 150),
-                  haz_waste= colDef(name = "Hazardous Waste Indicator", 
-                                    minWidth = 150),
-                  rmp= colDef(name = "RMP Facility Indicator"),
-                  storage_tanks = colDef(name = "Underground Storage Tank Indicator", 
-                                         minWidth = 150),
-                  superfund = colDef(name = "Superfund Proximity Indicator"),
-                  waste_discharge= colDef(name = "Waste Discharge Indicator", 
-                                          minWidth = 150)
-                ),
                 columnGroups = list(
-                  colGroup(name = "Utility", columns = c("pwsid", "pws_name",
-                                                         "county_served",
-                                                         "regions",
-                                                         "primary_source_code",
-                                                         "owner_type_description", "pop_catagories",
-                                                         "pop_density", "area_miles")),
-                  colGroup(name = "Socioeconomic", columns = c("estimate_mhi", "estimate_total_pop",
-                                                               "estimate_hisp_alone_per", "estimate_laborforce_unemployed_per",
-                                                               "estimate_hh_below_pov_per", "estimate_poc_alone_per", 
-                                                               "estimate_white_alone_per",
-                                                               "estimate_black_alone_per",
-                                                               "estimate_AIAN_alone_per",
-                                                               "estimate_asian_alone_per",
-                                                               "estimate_NAPI_alone_per",
-                                                               "estimate_other_alone_per",
-                                                               "estimate_mixed_alone_per",
-                                                               "estimate_bachelors_per",
-                                                               "estimate_prof_degree_per",
-                                                               "estimate_ageunder_5_per",
-                                                               "percent_disadv_cejst", "mean_thresholds_exceeded_cejst")),
-                  colGroup(name = "Violations", columns = c("healthbased_violations_5yr",
-                                                            "healthbased_violations_10yr",
-                                                            "paperwork_violations_5yr",
-                                                            "paperwork_violations_10yr",
-                                                            "total_violations_5yr",
-                                                            "total_violations_10yr",
-                                                            "open_health_viol")), 
-                  colGroup(name = "Financial", columns = c("total_water_sewer", 
-                                                           "dwsrf_times_funded", 
-                                                           "dwsrf_total_assistance",
-                                                           "dwsrf_total_pf",
-                                                           "dwsrf_median_assistance")), 
-                  colGroup(name = "Environmental", columns = c("limited_water_use", 
-                                                               "cvi_weighted_score",
-                                                               "total_bwn", 
-                                                               "haz_waste", "rmp", 
-                                                               "storage_tanks", "superfund", 
-                                                               "waste_discharge"))
-                ),
+                  colGroup(name = "Water Delivery System", columns = colgroups[colgroups$category == "Water Delivery System",]$clean_name), 
+                  colGroup(name = "Calculated", columns = colgroups[colgroups$category == "Calculated",]$clean_name), 
+                  colGroup(name = "Socioeconomic", columns = colgroups[colgroups$category == "Socioeconomic",]$clean_name),
+                  colGroup(name = "Financial", columns = colgroups[colgroups$category == "Financial",]$clean_name),
+                  colGroup(name = "Environmental Justice Indicators", columns = colgroups[colgroups$category == "Environmental Justice Indicators",]$clean_name)),
                 highlight = TRUE,
+                defaultColDef = colDef(minWidth = 150), 
                 bordered = TRUE,
                 resizable = TRUE,
                 showSortable = TRUE,
@@ -902,17 +800,12 @@ server <- function(input, output, session) {
     HTML("vignettes."),
     HTML("<li> For documentation, methods, and reproducing this application, see our"),
     tags$a(href=paste("https://github.com/Environmental-Policy-Innovation-Center/tx-dw-tool"), "Github",  target="_blank"),
-    HTML("<br>"),
-    HTML("<br>"),
-    HTML("<b> Attribution and License:  </b>"),
-    HTML("<br>"),
-    HTML("Developed in partnership with "),tags$a(href=paste("https://cgmf.org/p/home.html"), "Cynthia & George Mitchell",  target="_blank"),
-    HTML("and"), tags$a(href=paste("https://tlltemple.foundation/"), "T.L.L Temple",  target="_blank"),
     HTML("foundations by"), tags$a(href=paste("https://policyinnovation.org"), "Environmental Policy Innovation Center (EPIC). ",  target="_blank"), 
     HTML("EPIC makes no assurances to the accuracy of the tools data. All underlying code, methods, and data are available under a Creative Commons License."),
     HTML("<br>"),
     HTML("<br>"),
     HTML("<i>", "Last updated: ", "May 16, 2024", "</i>"),
+
     easyClose = FALSE,
     footer = modalButton("Close"),
   )
@@ -925,7 +818,7 @@ server <- function(input, output, session) {
   ################
   #### Report ####
   ################
-
+  
   # code for report adopted from: https://shiny.posit.co/r/articles/build/generating-reports/
   reportGenerator <- function(data, var_one, var_two)
   {
@@ -951,6 +844,7 @@ server <- function(input, output, session) {
     filename = "Report.html",
     content = function(file_n) {
       Sys.sleep(4)
+
       withProgress(message = 'Rendering, please wait!', {
         ## prints to ensure data is available (issue with downloading not working on first go)
         print(nrow(Controller$data_select))
@@ -958,66 +852,67 @@ server <- function(input, output, session) {
         print(input$VarTwo)
 
         file.rename(reportGenerator(Controller$data_select,input$VarOne,input$VarTwo), file_n)
+
       })
     })
   
-# download handler: 
-output$downloadData <- downloadHandler(
-  
-  filename = "tx-dw-app.zip",
-  
-  content = function(file) {
-    ## prints to ensure data is available (issue with downloading not working on first go)
-    Sys.sleep(4)
-    print(nrow(Controller$data_select))
-    drive_deauth()
-     
-   # add data dictionary:
-    # dictionary_csv <- drive_download("https://docs.google.com/spreadsheets/d/1bzNPxhL-l6DeGElhG1c70Of8DGAQasMDUuX3rPHVe2A/edit#gid=0",
-    #                                  file.path(tempdir(), "tx-app-data-dictionary.csv"), overwrite = TRUE)
-    # 
-    # # add methods doc:
-    # methods_doc <- drive_download("https://docs.google.com/document/d/1va2Iq2oJxnqiwgNHD4bWpXKxdWbq-TYoYkosj1oz_JU/edit",
-    #                                file.path(tempdir(),"tx-app-methods.docx"), overwrite = TRUE)
+  # download handler: 
+  output$downloadData <- downloadHandler(
     
-    # if statement to handle different file formats: 
-    if(input$downloadType == ".csv") {
-      # grabbing the selected data: 
-      csv_data <- Controller$data_select %>% 
-        as.data.frame() %>%
-        select(-"geometry")
-      write.csv(csv_data, 
-                file.path(tempdir(), "tx-app-selected-data.csv"), 
-                row.names = FALSE)
-      data_path_selected <- file.path(tempdir(), "tx-app-selected-data.csv")
-      
-      # grabbing the full dataset: 
-      tx_raw_data <- tx_raw %>%
-        as.data.frame() %>%
-        select(-"geometry")
-      write.csv(tx_raw_data, 
-                file.path(tempdir(), "tx-app-full-data.csv"), 
-                row.names = FALSE)
-      data_path_full <- file.path(tempdir(), "tx-app-full-data.csv")
-      
-    } else if(input$downloadType == ".geojson") {
-      # grabbing the selected data: 
-      st_write(Controller$data_select, file.path(tempdir(), "tx-app-selected-data.geojson"), delete_layer = TRUE)
-      data_path_selected <- file.path(tempdir(), "tx-app-selected-data.geojson")
-      
-      # grabbing the full dataset: 
-      st_write(tx_raw, file.path(tempdir(), "tx-app-full-data.geojson"), delete_layer = TRUE)
-      data_path_full <- file.path(tempdir(), "tx-app-full-data.geojson")
-    }
+    filename = "tx-dw-app.zip",
     
-    # zippin' it up!
-    zip::zip(file, files = c(file.path(tempdir(), "tx-app-data-dictionary.csv"),
-                             file.path(tempdir(),"tx-app-methods.docx"),
-                             data_path_selected, 
-                             data_path_full),
-             mode = "cherry-pick")
-  })
-
+    content = function(file) {
+      ## prints to ensure data is available (issue with downloading not working on first go)
+      Sys.sleep(4)
+      print(nrow(Controller$data_select))
+      drive_deauth()
+      
+      # add data dictionary:
+      # dictionary_csv <- drive_download("https://docs.google.com/spreadsheets/d/1bzNPxhL-l6DeGElhG1c70Of8DGAQasMDUuX3rPHVe2A/edit#gid=0",
+      #                                  file.path(tempdir(), "tx-app-data-dictionary.csv"), overwrite = TRUE)
+      # 
+      # # add methods doc:
+      # methods_doc <- drive_download("https://docs.google.com/document/d/1va2Iq2oJxnqiwgNHD4bWpXKxdWbq-TYoYkosj1oz_JU/edit",
+      #                                file.path(tempdir(),"tx-app-methods.docx"), overwrite = TRUE)
+      
+      # if statement to handle different file formats: 
+      if(input$downloadType == ".csv") {
+        # grabbing the selected data: 
+        csv_data <- Controller$data_select %>% 
+          as.data.frame() %>%
+          select(-"geometry")
+        write.csv(csv_data, 
+                  file.path(tempdir(), "tx-app-selected-data.csv"), 
+                  row.names = FALSE)
+        data_path_selected <- file.path(tempdir(), "tx-app-selected-data.csv")
+        
+        # grabbing the full dataset: 
+        tx_raw_data <- tx_raw %>%
+          as.data.frame() %>%
+          select(-"geometry")
+        write.csv(tx_raw_data, 
+                  file.path(tempdir(), "tx-app-full-data.csv"), 
+                  row.names = FALSE)
+        data_path_full <- file.path(tempdir(), "tx-app-full-data.csv")
+        
+      } else if(input$downloadType == ".geojson") {
+        # grabbing the selected data: 
+        st_write(Controller$data_select, file.path(tempdir(), "tx-app-selected-data.geojson"), delete_layer = TRUE)
+        data_path_selected <- file.path(tempdir(), "tx-app-selected-data.geojson")
+        
+        # grabbing the full dataset: 
+        st_write(tx_raw, file.path(tempdir(), "tx-app-full-data.geojson"), delete_layer = TRUE)
+        data_path_full <- file.path(tempdir(), "tx-app-full-data.geojson")
+      }
+      
+      # zippin' it up!
+      zip::zip(file, files = c(file.path(tempdir(), "tx-app-data-dictionary.csv"),
+                               file.path(tempdir(),"tx-app-methods.docx"),
+                               data_path_selected, 
+                               data_path_full),
+               mode = "cherry-pick")
+    })
+  
 }
 # Run the application 
 shinyApp(ui = ui, server = server)
