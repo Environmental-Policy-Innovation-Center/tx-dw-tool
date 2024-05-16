@@ -162,7 +162,7 @@ server <- function(input, output, session) {
   # increase by 20
   waitress$inc(20) 
   tx_raw <- aws.s3::s3read_using(st_read, 
-                                 object = "state-drinking-water/TX/clean/app/app_test_data_simplified_v2.geojson",
+                                 object = "state-drinking-water/TX/clean/app/app_test_data_simplified.geojson",
                                  bucket = "tech-team-data", 
                                  quiet = TRUE)
   
@@ -184,7 +184,7 @@ server <- function(input, output, session) {
   # increase by 20
   waitress$inc(20) 
   suppressMessages({data_dict <- aws.s3::s3read_using(read.csv,
-                                                      object = "state-drinking-water/TX/clean/app/data_dict.csv",
+                                                      object = "state-drinking-water/TX/clean/app/data_dict_v2.csv",
                                                       bucket = "tech-team-data")})
   
   suppressWarnings({report <- aws.s3::s3read_using(readLines,object = "state-drinking-water/TX/clean/app/tx-report.Rmd",
@@ -712,7 +712,7 @@ server <- function(input, output, session) {
                   colGroup(name = "Calculated", columns = colgroups[colgroups$category == "Calculated",]$clean_name), 
                   colGroup(name = "Socioeconomic", columns = colgroups[colgroups$category == "Socioeconomic",]$clean_name),
                   colGroup(name = "Financial", columns = colgroups[colgroups$category == "Financial",]$clean_name),
-                  colGroup(name = "Environmental", columns = colgroups[colgroups$category == "Environmental",]$clean_name)),
+                  colGroup(name = "Environmental Justice Indicators", columns = colgroups[colgroups$category == "Environmental Justice Indicators",]$clean_name)),
                 highlight = TRUE,
                 defaultColDef = colDef(minWidth = 150), 
                 bordered = TRUE,

@@ -412,6 +412,14 @@ hbv_pwsid_summary <- sdwis %>%
 extra_vars_final <- merge(extra_vars_final, hbv_pwsid_summary, all.x = T) %>%
   mutate(open_health_viol = case_when(is.na(open_health_viol) ~ "No", 
                                TRUE ~ open_health_viol))
+
+# Year funded ##################################################################
+srf_year_funded <- dw_srf %>%
+  group_by(pwsid) %>%
+  summarize(last_year_funded = max(year))
+
+extra_vars_final <- merge(extra_vars_final, srf_year_funded, all.x = T) %>%
+  relocate(last_year_funded, .after = dwsrf_median_assistance)
 ```
 
 ## Joining to simplified GeoJson for quicker load times on app
@@ -445,7 +453,7 @@ data.table::fwrite(data_dict, file.path(tempdir(), filename))
 
 put_object(
   file = file.path(tempdir(), filename),
-  object = "/state-drinking-water/TX/clean/app/data_dict.csv",
+  object = "/state-drinking-water/TX/clean/app/data_dict_v2.csv",
   bucket = "tech-team-data",
   acl = "public-read"
 )
