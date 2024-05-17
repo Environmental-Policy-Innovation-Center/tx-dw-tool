@@ -22,7 +22,7 @@ st_write(tx_sab, dsn = paste0(tmp, ".geojson"))
 on.exit(unlink(tmp))
 put_object(
   file = paste0(tmp, ".geojson"),
-  object = "/state-drinking-water/TX/clean/app/tx-sab-super-simple-prod.geojson",
+  object = "/state-drinking-water/TX/clean/app/tx-sab-super-simple-test.geojson",
   bucket = "tech-team-data",
   acl = "public-read"
 )
@@ -32,7 +32,7 @@ st_write(tx_counties, dsn = paste0(tmp, ".geojson"))
 on.exit(unlink(tmp))
 put_object(
   file = paste0(tmp, ".geojson"),
-  object = "/state-drinking-water/TX/clean/app/tx-counties-simple-prod.geojson",
+  object = "/state-drinking-water/TX/clean/app/tx-counties-simple-test.geojson",
   bucket = "tech-team-data",
   acl = "public-read"
 )
@@ -42,7 +42,7 @@ st_write(tx_regions, dsn = paste0(tmp, ".geojson"))
 on.exit(unlink(tmp))
 put_object(
   file = paste0(tmp, ".geojson"),
-  object = "/state-drinking-water/TX/clean/app/tx-regions-simple-prod.geojson",
+  object = "/state-drinking-water/TX/clean/app/tx-regions-simple-test.geojson",
   bucket = "tech-team-data",
   acl = "public-read"
 )

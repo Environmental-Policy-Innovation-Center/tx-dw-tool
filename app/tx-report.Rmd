@@ -42,7 +42,7 @@ tx_basemap <- map_data("county") %>%
 
 # grabbing clean names for selected variables: 
 suppressMessages({data_dict <- aws.s3::s3read_using(read.csv, 
-                                                    object = "state-drinking-water/TX/clean/app/data_dict_v2.csv",
+                                                    object = "state-drinking-water/TX/clean/app/app-data-dict-test.csv",
                                                     bucket = "tech-team-data")})
 
 clean_v1_name <- data_dict %>% filter(var_name == !!(v1)) %>% pull(clean_name)

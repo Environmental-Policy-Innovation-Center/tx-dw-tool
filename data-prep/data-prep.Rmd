@@ -464,7 +464,7 @@ st_write(app_test_df_simplified, dsn = paste0(tmp, ".geojson"))
 on.exit(unlink(tmp))
 put_object(
   file = paste0(tmp, ".geojson"),
-  object = "/state-drinking-water/TX/clean/app/app-data-prod.geojson",
+  object = "/state-drinking-water/TX/clean/app/app-data-test.geojson",
   bucket = "tech-team-data",
   acl = "public-read"
 )
@@ -472,12 +472,12 @@ put_object(
 
 ## Saving data dictionary to s3: 
 ```{r}
-filename <- "data_dict-prod.csv"
+filename <- "data_dict-test.csv"
 data.table::fwrite(data_dict, file.path(tempdir(), filename))
 
 put_object(
   file = file.path(tempdir(), filename),
-  object = "/state-drinking-water/TX/clean/app/app-data-dict-prod.csv",
+  object = "/state-drinking-water/TX/clean/app/app-data-dict-test.csv",
   bucket = "tech-team-data",
   acl = "public-read"
 )
@@ -487,11 +487,11 @@ put_object(
 ```{r}
 # NOTE: just a quick chunk to update the RMD on S3 with local changes - not 
 # the best solution yet 
-filepath <- "./app/tx-report-prod.Rmd"
+filepath <- "./app/tx-report.Rmd"
 
 put_object(
   file = file.path(filepath),
-  object = "/state-drinking-water/TX/clean/app/tx-report-prod.Rmd",
+  object = "/state-drinking-water/TX/clean/app/tx-report-test.Rmd",
   bucket = "tech-team-data",
   acl = "public-read"
 )

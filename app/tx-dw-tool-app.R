@@ -157,12 +157,12 @@ server <- function(input, output, session) {
   waitress$inc(20) 
   # Raw Application Data
   tx_raw <- aws.s3::s3read_using(st_read, 
-                                 object = "state-drinking-water/TX/clean/app/app-data-prod.geojson",
+                                 object = "state-drinking-water/TX/clean/app/app-data-test.geojson",
                                  bucket = "tech-team-data", 
                                  quiet = TRUE)
   # TX Counties
   tx_counties <- aws.s3::s3read_using(st_read, 
-                                      object = "state-drinking-water/TX/clean/app/tx-counties-simple-prod.geojson",
+                                      object = "state-drinking-water/TX/clean/app/tx-counties-simple-test.geojson",
                                       bucket = "tech-team-data",
                                       quiet = TRUE)
   # increase by 20
@@ -170,13 +170,13 @@ server <- function(input, output, session) {
   
   # TX Regions
   tx_regions <- aws.s3::s3read_using(st_read, 
-                                     object = "state-drinking-water/TX/clean/app/tx-regions-simple-prod.geojson",
+                                     object = "state-drinking-water/TX/clean/app/tx-regions-simple-test.geojson",
                                      bucket = "tech-team-data",
                                      quiet = TRUE)
   
   # Simpified TX Data
   tx_sab_super_simplified <- aws.s3::s3read_using(st_read, 
-                                                  object = "state-drinking-water/TX/clean/app/tx-sab-super-simple-prod.geojson",
+                                                  object = "state-drinking-water/TX/clean/app/tx-sab-super-simple-test.geojson",
                                                   bucket = "tech-team-data",
                                                   quiet = TRUE)
   # increase by 20
@@ -184,13 +184,13 @@ server <- function(input, output, session) {
 
   # Data Dictionary 
   suppressMessages({data_dict <- aws.s3::s3read_using(read.csv,
-                                                      object = "state-drinking-water/TX/clean/app/app-data-dict-prod.csv",
+                                                      object = "state-drinking-water/TX/clean/app/app-data-dict-test.csv",
                                                       bucket = "tech-team-data")})
   # Writing data dictionary to temp 
   dictionary_csv <- tempfile(pattern = "tx-app-data-dictionary", fileext = ".csv")
   write.csv(data_dict, file = dictionary_csv)
 
-  suppressWarnings({report <- aws.s3::s3read_using(readLines,object = "state-drinking-water/TX/clean/app/tx-report-prod.Rmd",
+  suppressWarnings({report <- aws.s3::s3read_using(readLines,object = "state-drinking-water/TX/clean/app/tx-report-test.Rmd",
                                                    bucket = "tech-team-data")})
 
   methods_doc <- drive_download("https://docs.google.com/document/d/1va2Iq2oJxnqiwgNHD4bWpXKxdWbq-TYoYkosj1oz_JU/edit", 
@@ -805,14 +805,14 @@ server <- function(input, output, session) {
     owd <- setwd(temp_dir)
     on.exit(setwd(owd))
     
-    temp_rmd <- file.path(tempdir(), "tx-report-prod.Rmd")
+    temp_rmd <- file.path(tempdir(), "tx-report-test.Rmd")
     
     writeLines(report, temp_rmd)
     params <- list(data_p = data,
                    var_one = var_one,
                    var_two = var_two)
     
-    out <- rmarkdown::render("tx-report-prod.Rmd",
+    out <- rmarkdown::render("tx-report-test.Rmd",
                              params = params,
                              envir = new.env(parent = globalenv()))
     return(out)
