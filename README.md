@@ -27,6 +27,7 @@ The repository for the data collection and analysis that feeds into this tool is
 # Information and Feedback:
 -   Got feedback? Take our [survey](https://forms.gle/Xjbeur68qukaRmFo7) and visit our [public log](https://docs.google.com/document/d/1MvfLFHDhTKoyLuk-cEPwFj8LPZTtdzPLBrkbhbuU38Y/edit)!
 -   To learn more about how to use this tool, visit our vignettes [coming soon!].
+-   Interested in contributing? Fork the repository and make a pull request!
 
 # Attribution and License:
 Developed in partnership with [Cynthia & George Mitchell](https://cgmf.org/p/home.html) and [T.L.L Temple](https://tlltemple.foundation/) foundations by [Environmental Policy Innovation Center (EPIC)](https://www.policyinnovation.org/). EPIC makes no assurances to the accuracy of the data. All underlying code, methods, and data are available under a Creative Commons License.
