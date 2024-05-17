@@ -28,26 +28,29 @@ demo <- aws.s3::s3read_using(readRDS,
 keys <- aws.s3::s3read_using(readRDS, 
                              object = "s3://tech-team-data/state-drinking-water/TX/clean/TX_merging_keys_list.RData")
 
+# loading simple sabs datset:
 tx_sab_simplified <- aws.s3::s3read_using(st_read, 
-                                   object = "state-drinking-water/TX/clean/app/tx_sab_simplified.geojson",
+                                   object = "state-drinking-water/TX/clean/app/tx-sab-simple.geojson",
                                    bucket = "tech-team-data")
 
+# loading latest data dictionary 
 gs4_deauth()
 URL <- "https://docs.google.com/spreadsheets/d/1bzNPxhL-l6DeGElhG1c70Of8DGAQasMDUuX3rPHVe2A/edit#gid=0"
 data_dict <- read_sheet(URL, sheet = "var_names")
 ```
 
-## Creating test data: 
+## Creating base application data: 
 ```{r}
-# grabbing some sample stats - adding pop categories and ownership type 
-# TO DO: clean this section up and make dedicate spaces for variable additions/modifications
+# Adding population categories and translating owner and source codes to 
+# human-readable names: 
 
-
+# owner codes: 
 owner_type_code <- c("F","L","M","N","P","S")
 ## from sdwis
 owner_type_description <-c("Federal Government","Local Government","Public/Private","Native American","Private","State Government")
 owner_type_merge <- data.frame(owner_type_code,owner_type_description)
 
+# tidying sabs dataset and grabbing key variables for the application: 
 analysis_keys <- keys$analysis_keys 
 sabs <- demo$census %>%
   mutate(pop_catagories = ifelse(estimate_total_pop > 0, "Very Small 0-1k", "Very Small (0 - 1,000)"))%>%
@@ -85,33 +88,33 @@ app_test_df <- analysis_keys %>%
 
 ## Adding TX regions: 
 ```{r}
-# script for pulling TX regions: 
-# file_loc <- "./data-prep/TX_regions"
-# download.file("https://www.twdb.texas.gov/mapping/gisdata/doc/RWPA_Shapefile.zip", 
-#               destfile = paste0(file_loc, ".zip"))
-# unzip(zipfile = paste0(file_loc, ".zip"), exdir = file_loc) 
-# file.remove(paste0(file_loc, ".zip"))
+# script for pulling TX regions - edited to run regardless of where you've set 
+# your working directory (previously it was set to app parent folder)
+file_loc <- "TX_regions"
+download.file("https://www.twdb.texas.gov/mapping/gisdata/doc/RWPA_Shapefile.zip",
+              destfile = paste0(file_loc, ".zip"))
+unzip(zipfile = paste0(file_loc, ".zip"), exdir = file_loc)
+file.remove(paste0(file_loc, ".zip"))
 
 # grabbing region boundaries 
-## EmmaLi - can you put this file in an S3 bucket to preserve code runnability? 
-# region_boundaries <- st_read(paste0(file_loc, "/TWDB_RWPAs_2014.shp")) %>%
-#   janitor::clean_names() %>%
-#   st_transform('+proj=longlat +datum=WGS84')
-# 
-# # saving region boundaries to s3: 
-# tmp <- tempfile()
-# st_write(region_boundaries, dsn = paste0(tmp, ".geojson"))
-# on.exit(unlink(tmp))
-# put_object(
-#   file = paste0(tmp, ".geojson"),
-#   object = "/state-drinking-water/TX/clean/app/TX_regions.geojson",
-#   bucket = "tech-team-data",
-#   acl = "public-read"
-# )
+region_boundaries <- st_read(paste0(file_loc, "/TWDB_RWPAs_2014.shp")) %>%
+  janitor::clean_names() %>%
+  st_transform('+proj=longlat +datum=WGS84')
+
+# saving region boundaries to s3: 
+tmp <- tempfile()
+st_write(region_boundaries, dsn = paste0(tmp, ".geojson"))
+on.exit(unlink(tmp))
+put_object(
+  file = paste0(tmp, ".geojson"),
+  object = "/state-drinking-water/TX/clean/app/tx-region-boundaries.geojson",
+  bucket = "tech-team-data",
+  acl = "public-read"
+)
 
 # reading region boundaries from s3: 
 region_boundaries <- aws.s3::s3read_using(st_read, 
-                                          object = "s3://tech-team-data/state-drinking-water/TX/clean/app/TX_regions.geojson")
+                                          object = "s3://tech-team-data/state-drinking-water/TX/clean/app/tx-region-boundaries.geojson")
 
 # grabbing service areas for st_intersection: 
 sabs <- demo$census %>%
@@ -137,45 +140,44 @@ write.csv(sab_region_tidy, file = paste0(tmp, ".csv"), row.names = FALSE)
 on.exit(unlink(tmp))
 put_object(
   file = paste0(tmp, ".csv"),
-  object = "/state-drinking-water/TX/clean/app/TX_pwsid_regions.csv",
+  object = "/state-drinking-water/TX/clean/app/tx-pwsid-regions.csv",
   bucket = "tech-team-data",
   acl = "public-read"
 )
 
 # reading pwsid regions from s3: 
 pwsid_regions <- aws.s3::s3read_using(read.csv, 
-                                      object = "s3://tech-team-data/state-drinking-water/TX/clean/app/TX_pwsid_regions.csv")
+                                      object = "s3://tech-team-data/state-drinking-water/TX/clean/app/tx-pwsid-regions.csv")
 
 # there's one less pwsid because it's over the border in AK (Texarkana region)
 ```
 
-## Adding extra datasets to the application: 
+## Adding extra variables to the application data: 
 ```{r}
-# want to add: bwn, water shortages, dwsrf analysis, water rates, and CVI
-# pulling associated data lists: 
+# Loading extra datasets: ######################################################
+# pulling associated data lists for financial and water deliver system info: 
 wds <- aws.s3::s3read_using(readRDS, 
                             object = "s3://tech-team-data/state-drinking-water/TX/clean/TX_water_delivery_list.RData")
 fin <- aws.s3::s3read_using(readRDS, 
                             object = "s3://tech-team-data/state-drinking-water/TX/clean/TX_financial_list.RData")
 
-bwn <- wds$bwn_f2
-shortages <- wds$water_restrictions 
-dw_srf <- fin$TX_DWSRF_Analysis %>%
-  filter(state == "Texas") %>%
-  filter(pwsid != "")
-rates <- fin$TX_affordability_DAC
-cvi <- demo$cvi
+# skeleton dataframe of pwsids to store new variables: 
+pwsids <- demo$census %>% 
+  as.data.frame() %>% 
+  select(pwsid)
 
-# skeleton dataframe of pwsids: 
-pwsids <- demo$census %>% as.data.frame() %>% select(pwsid)
 
 # Rates: ######################################################################
+rates <- fin$TX_affordability_DAC
+
+# grabbing total annual cost: 
 rates$total_water_sewer <- rates$total_water_year + rates$total_sewer_year
 pwsid_rates <- rates %>% 
   as.data.frame() %>%
   select(pwsid, total_water_sewer)
 
 extra_vars <- merge(pwsids, pwsid_rates, by = "pwsid", all.x = T)
+
 
 # CVI: ########################################################################
 cvi_tidy <- demo$cvi %>%
@@ -226,7 +228,10 @@ cvi_weighted <- interpolate %>%
 # updating extra var dataset: 
 extra_vars <- merge(extra_vars, cvi_weighted, all.x = T)
 
+
 # Limited Water Use ############################################################
+shortages <- wds$water_restrictions 
+
 # adding data from previous webscrape (which includes 2023 data)
 old_shortages <- aws.s3::s3read_using(read.csv, 
                                       object = "s3://tech-team-data/state-drinking-water/TX/raw/TX_water_restrictions.csv") %>%
@@ -241,13 +246,19 @@ limited_water_use <- all_shortages %>%
   group_by(pwsid) %>%
   summarize(limited_water_use = length(unique(date_notified)))
 
-# merging with datset: 
+# merging with dataset: 
 extra_vars <- merge(extra_vars, limited_water_use, all.x = T) %>%
   # these are true zeroes: 
   mutate(limited_water_use = case_when(is.na(limited_water_use) ~ 0, 
                                        TRUE ~ limited_water_use))
 
+
 # DW SRFs #####################################################################
+dw_srf <- fin$TX_DWSRF_Analysis %>%
+  filter(state == "Texas") %>%
+  filter(pwsid != "")
+
+# grabbing assistance summary stats: 
 dw_srf_simple <- dw_srf %>% 
   group_by(pwsid) %>%
   summarize(dwsrf_times_funded = n(),
@@ -255,19 +266,23 @@ dw_srf_simple <- dw_srf %>%
             dwsrf_total_pf = sum(prin_forgive_amt),
             dwsrf_median_assistance = median(assistance_amt)) 
 
+# merging with dataset
 extra_vars <- merge(extra_vars, dw_srf_simple, all.x = T) %>%
   mutate(dwsrf_times_funded = case_when(is.na(dwsrf_times_funded) ~ 0, 
     TRUE ~ dwsrf_times_funded))
 
+
 # Boil Water Notices: ##########################################################
-# WORK IN PROGRESS: 
-head(bwn)
+bwn <- wds$bwn_f2
+
+# fix how the dates were read into R
 bwn_tidy <- bwn %>%
   rename(pwsid = pws_id) %>%
   mutate(updtts = as.Date(updtts, tryFormats = c("%Y-%m-%d")), 
          reported_date = openxlsx::convertToDate(reported_date),
          achieved_date = openxlsx::convertToDate(achieved_date)) %>%
   # removing this date - presumably a human error since this hasn't occurred yet
+  # as of writing
   filter(reported_date != "2024-12-27")
 
 # total of UNIQUE reported bwn dates for each pwsid since 2018
@@ -279,11 +294,13 @@ extra_vars_v1 <- merge(extra_vars, bwn_tidy_pwsid, all.x = T) %>%
   mutate(total_bwn = case_when(is.na(total_bwn) ~ 0, 
                                TRUE ~ total_bwn))
 
+
 # EJ screen - proximity to water hazards #######################################
 # grabbing data from EJ screen: 
 ejscreen <- demo$ejscreen %>%
   select(-X)
 
+# variable keys: 
 # Superfund sites (NPL), risk management plan (RMP) proximity, 
 # haz waste (TSDF and LQGs) proximity, underground storage tanks (UST), 
 # and waste water discharges indicator 
@@ -333,6 +350,7 @@ ej_inter_tidy <- interpolate %>%
 
 # adding to extra vars df: 
 extra_vars_v1 <- merge(extra_vars_v1, ej_inter_tidy, all.x = T) 
+
 
 # CEJST Disadvantaged Status ###################################################
 cejst <- demo$cejst
@@ -391,7 +409,7 @@ cejst_tidy <- cejst_interpolate %>%
 # NOTE: some have 100% disadv status but 0 mean thresholds exceeded because: 
 # "In addition, a census tract that is completely surrounded by disadvantaged communities that meet the
 # burden thresholds—and is at or above the 50th percentile for low income—is also considered
-# disadvantaged." 
+# disadvantaged." - from CEJST documentation 
 
 # adding to extra vars df: 
 extra_vars_final <- merge(extra_vars_v1, cejst_tidy, all.x = T) 
@@ -400,6 +418,8 @@ extra_vars_final <- merge(extra_vars_v1, cejst_tidy, all.x = T)
 # Active health-based violations ###############################################
 sdwis <- wds$sdwis
 
+# grab instances where there is a health-based violation and where the RTC 
+# column is blank - this interpretation was cleared by EPA staff 
 hbv_pwsid_summary <- sdwis %>%
   filter(is_health_based_ind == "Y") %>%
   mutate(open_health_viol = case_when(rtc_date == "" ~ "Yes",
@@ -409,15 +429,18 @@ hbv_pwsid_summary <- sdwis %>%
   unique() %>%
   filter(pwsid %in% sabs$pwsid)
 
+# merging with dataset 
 extra_vars_final <- merge(extra_vars_final, hbv_pwsid_summary, all.x = T) %>%
   mutate(open_health_viol = case_when(is.na(open_health_viol) ~ "No", 
                                TRUE ~ open_health_viol))
 
 # Year funded ##################################################################
+
 srf_year_funded <- dw_srf %>%
   group_by(pwsid) %>%
   summarize(last_year_funded = max(year))
 
+# final dataset before joining with the base variables: 
 extra_vars_final <- merge(extra_vars_final, srf_year_funded, all.x = T) %>%
   relocate(last_year_funded, .after = dwsrf_median_assistance)
 ```
@@ -441,7 +464,7 @@ st_write(app_test_df_simplified, dsn = paste0(tmp, ".geojson"))
 on.exit(unlink(tmp))
 put_object(
   file = paste0(tmp, ".geojson"),
-  object = "/state-drinking-water/TX/clean/app/app_test_data_simplified.geojson",
+  object = "/state-drinking-water/TX/clean/app/app-data-prod.geojson",
   bucket = "tech-team-data",
   acl = "public-read"
 )
@@ -453,7 +476,7 @@ data.table::fwrite(data_dict, file.path(tempdir(), filename))
 
 put_object(
   file = file.path(tempdir(), filename),
-  object = "/state-drinking-water/TX/clean/app/data_dict_v2.csv",
+  object = "/state-drinking-water/TX/clean/app/app-data-dict-prod.csv",
   bucket = "tech-team-data",
   acl = "public-read"
 )
@@ -466,7 +489,7 @@ filepath <- "./app/tx-report.Rmd"
 
 put_object(
   file = file.path(filepath),
-  object = "/state-drinking-water/TX/clean/app/tx-report.Rmd",
+  object = "/state-drinking-water/TX/clean/app/tx-report-prod.Rmd",
   bucket = "tech-team-data",
   acl = "public-read"
 )
