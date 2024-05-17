@@ -472,7 +472,7 @@ put_object(
 
 ## Saving data dictionary to s3: 
 ```{r}
-filename <- "data_dict-test.csv"
+filename <- "app-data-dict-test.csv"
 data.table::fwrite(data_dict, file.path(tempdir(), filename))
 
 put_object(
