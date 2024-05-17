@@ -186,7 +186,6 @@ server <- function(input, output, session) {
   suppressMessages({data_dict <- aws.s3::s3read_using(read.csv,
                                                       object = "state-drinking-water/TX/clean/app/app-data-dict-prod.csv",
                                                       bucket = "tech-team-data")})
-  
   # Writing data dictionary to temp 
   dictionary_csv <- tempfile(pattern = "tx-app-data-dictionary", fileext = ".csv")
   write.csv(data_dict, file = dictionary_csv)
@@ -194,13 +193,8 @@ server <- function(input, output, session) {
   suppressWarnings({report <- aws.s3::s3read_using(readLines,object = "state-drinking-water/TX/clean/app/tx-report-prod.Rmd",
                                                    bucket = "tech-team-data")})
 
-  # Methods
-  suppressWarnings({methods <- aws.s3::s3read_using(readLines,
-                                                      object = "state-drinking-water/TX/clean/app/tx-app-methods.docx",
-                                                      bucket = "tech-team-data")})
-  # Writing methods to temp 
-  suppressWarnings({methods_doc <- tempfile(pattern = "tx-app-methods", fileext = ".docx")
-  write.csv(methods, file = methods_doc)})
+  methods_doc <- drive_download("https://docs.google.com/document/d/1va2Iq2oJxnqiwgNHD4bWpXKxdWbq-TYoYkosj1oz_JU/edit", 
+                                file.path(tempdir(),"tx-app-methods.docx"), overwrite = TRUE)
   
   ################
   ### Variables ##
@@ -882,7 +876,6 @@ server <- function(input, output, session) {
         st_write(tx_raw, file.path(tempdir(), "tx-app-full-data.geojson"), delete_layer = TRUE)
         data_path_full <- file.path(tempdir(), "tx-app-full-data.geojson")
       }
-      
       # zippin' it up!
       zip::zip(file, files = c(file.path(tempdir(), "tx-app-data-dictionary.csv"),
                                file.path(tempdir(),"tx-app-methods.docx"),
