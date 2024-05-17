@@ -472,7 +472,7 @@ put_object(
 
 ## Saving data dictionary to s3: 
 ```{r}
-filename <- "data_dict.csv"
+filename <- "data_dict-prod.csv"
 data.table::fwrite(data_dict, file.path(tempdir(), filename))
 
 put_object(
@@ -487,7 +487,7 @@ put_object(
 ```{r}
 # NOTE: just a quick chunk to update the RMD on S3 with local changes - not 
 # the best solution yet 
-filepath <- "./app/tx-report.Rmd"
+filepath <- "./app/tx-report-prod.Rmd"
 
 put_object(
   file = file.path(filepath),

@@ -8,12 +8,12 @@ library(tidyverse)
 
 ## These files were simplified using mapshapper
 ## TO DO: change to repository folder file paths 
-tx_sab <- st_read("/Users/gw/Downloads/tx_sab_super_simplified.geojson.json")
+tx_sab <- st_read("data-prep/geojsons/tx_sab_super_simplified.geojson.json")
 
-tx_counties <- st_read("/Users/gw/Downloads/tx_counties_v3.json")%>%
+tx_counties <- st_read("data-prep/geojsons/tx_counties_v3.json")%>%
                 select(namelsad)
 
-tx_regions <- st_read("/Users/gw/Downloads/TX_regions_simplified.json")%>%
+tx_regions <- st_read("data-prep/geojsons/TX_regions_simplified.json")%>%
                select(label_2)
 
 
