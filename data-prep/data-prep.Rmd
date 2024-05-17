@@ -470,6 +470,7 @@ put_object(
 )
 ```
 
+## Saving data dictionary to s3: 
 ```{r}
 filename <- "data_dict.csv"
 data.table::fwrite(data_dict, file.path(tempdir(), filename))
@@ -482,6 +483,7 @@ put_object(
 )
 ```
 
+## Saving report to s3: 
 ```{r}
 # NOTE: just a quick chunk to update the RMD on S3 with local changes - not 
 # the best solution yet 
@@ -490,6 +492,21 @@ filepath <- "./app/tx-report.Rmd"
 put_object(
   file = file.path(filepath),
   object = "/state-drinking-water/TX/clean/app/tx-report-prod.Rmd",
+  bucket = "tech-team-data",
+  acl = "public-read"
+)
+```
+
+## Saving methods to s3: 
+```{r}
+drive_deauth()
+# Methods
+methods_doc <- drive_download("https://docs.google.com/document/d/1va2Iq2oJxnqiwgNHD4bWpXKxdWbq-TYoYkosj1oz_JU/edit",
+                              file.path(tempdir(),"tx-app-methods.docx"), overwrite = TRUE)
+
+put_object(
+  file =  file.path(tempdir(),"tx-app-methods.docx"),
+  object = "/state-drinking-water/TX/clean/app/tx-app-methods.docx",
   bucket = "tech-team-data",
   acl = "public-read"
 )
