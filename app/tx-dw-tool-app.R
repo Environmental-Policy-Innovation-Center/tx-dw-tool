@@ -187,9 +187,7 @@ server <- function(input, output, session) {
                                                       object = "state-drinking-water/TX/clean/app/app-data-dict-prod.csv",
                                                       bucket = "tech-team-data")})
   # Writing data dictionary to temp 
-  dictionary_csv <- tempfile(pattern = "tx-app-data-dictionary", fileext = ".csv")
-  write.csv(data_dict, file = dictionary_csv)
-
+  write.csv(data_dict, file.path(tempdir(), "tx-app-data-dictionary.csv"), row.names = FALSE)
   suppressWarnings({report <- aws.s3::s3read_using(readLines,object = "state-drinking-water/TX/clean/app/tx-report-prod.Rmd",
                                                    bucket = "tech-team-data")})
 
@@ -785,7 +783,7 @@ server <- function(input, output, session) {
     HTML("EPIC makes no assurances to the accuracy of the tools data. All underlying code, methods, and data are available under a Creative Commons License."),
     HTML("<br>"),
     HTML("<br>"),
-    HTML("<i>", "Last updated: ", "May 16, 2024", "</i>"),
+    HTML("<i>", "Last updated: ", "May 20, 2024", "</i>"),
 
     easyClose = FALSE,
     footer = modalButton("Close"),
