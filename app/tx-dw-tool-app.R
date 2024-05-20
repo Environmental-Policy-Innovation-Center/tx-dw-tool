@@ -193,6 +193,7 @@ server <- function(input, output, session) {
   suppressWarnings({report <- aws.s3::s3read_using(readLines,object = "state-drinking-water/TX/clean/app/tx-report-test.Rmd",
                                                    bucket = "tech-team-data")})
 
+  drive_deauth()
   methods_doc <- drive_download("https://docs.google.com/document/d/1va2Iq2oJxnqiwgNHD4bWpXKxdWbq-TYoYkosj1oz_JU/edit", 
                                 file.path(tempdir(),"tx-app-methods.docx"), overwrite = TRUE)
   
