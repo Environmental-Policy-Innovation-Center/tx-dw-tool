@@ -83,7 +83,7 @@ ui <- fluidPage(
     div(
       id ="sidebar",
       sidebarPanel(
-        style = "position: fixed; height: 100%; width: 420px; overflow-y: auto; margin-left: -30px;", 
+        style = "position: fixed; height: 90vh; overflow-y: auto; margin-left: -30px;", div(style = "display:inline-block; float:right; margin-bottom: 20px"),
         width = 3,
         actionButton("showInfo", "", icon(name = "circle-question", lib = "font-awesome", style = "font-size: 17px"), class = "info-button"), 
         uiOutput("SelectGeography", style = "width: 95%"), 
@@ -127,7 +127,7 @@ ui <- fluidPage(
     # Main Panel Layout
     mainPanel(
       style = "margin-left: -15px;",
-      leafletOutput("Map", height = "100vh"),
+      leafletOutput("Map", height = "90vh"),
       hidden(
         uiOutput("TableText",
                  style = "font-size: 15px; margin-left: 5px; position:relative; z-index: 500; font-style: italic; margin-top: 5px;"),
