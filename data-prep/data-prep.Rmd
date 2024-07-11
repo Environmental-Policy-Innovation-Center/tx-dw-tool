@@ -24,9 +24,9 @@ library(googlesheets4)
 ```{r}
 # loading lists of data 
 demo <- aws.s3::s3read_using(readRDS, 
-                             object = "s3://tech-team-data/state-drinking-water/TX/clean/TX_demographic_list.RData")
+                             object = "s3://tech-team-data/state-drinking-water/TX/clean/TX_EPAdemographic_list.RData")
 keys <- aws.s3::s3read_using(readRDS, 
-                             object = "s3://tech-team-data/state-drinking-water/TX/clean/TX_merging_keys_list.RData")
+                             object = "s3://tech-team-data/state-drinking-water/TX/clean/TX_EPAmerging_keys_list.RData")
 
 # loading simple sabs datset:
 tx_sab_simplified <- aws.s3::s3read_using(st_read, 
@@ -52,12 +52,20 @@ owner_type_merge <- data.frame(owner_type_code,owner_type_description)
 
 # tidying sabs dataset and grabbing key variables for the application: 
 analysis_keys <- keys$analysis_keys 
+
+# calculating population density in people/mile: 
 sabs <- demo$census %>%
-  mutate(pop_catagories = ifelse(estimate_total_pop > 0, "Very Small 0-1k", "Very Small (0 - 1,000)"))%>%
-  mutate(pop_catagories = ifelse(estimate_total_pop >= 1001, "Small 1k-3.3k", pop_catagories))%>%
-  mutate(pop_catagories = ifelse(estimate_total_pop >= 3301, "Medium 3.3k-10k", pop_catagories))%>%
-  mutate(pop_catagories = ifelse(estimate_total_pop >= 10001, "Large 10k-100k", pop_catagories))%>%
-  mutate(pop_catagories = ifelse(estimate_total_pop > 100000, "Very Large 100k+", pop_catagories))%>%
+    mutate(area_miles = as.numeric(sf::st_area(.))) %>%
+    mutate(area_miles = area_miles/27880000) %>%
+    mutate(pop_density = estimate_total_pop / area_miles)
+
+# refactoring columns: 
+sabs <- sabs %>%
+  mutate(pop_categories = ifelse(estimate_total_pop > 0, "Very Small 0-1k", "Very Small (0 - 1,000)"))%>%
+  mutate(pop_categories = ifelse(estimate_total_pop >= 1001, "Small 1k-3.3k", pop_categories))%>%
+  mutate(pop_categories = ifelse(estimate_total_pop >= 3301, "Medium 3.3k-10k", pop_categories))%>%
+  mutate(pop_categories = ifelse(estimate_total_pop >= 10001, "Large 10k-100k", pop_categories))%>%
+  mutate(pop_categories = ifelse(estimate_total_pop > 100000, "Very Large 100k+", pop_categories))%>%
   # creating more human-readable source type codes: 
   mutate(primary_source_code = case_when(primary_source_code == "SWP" ~ "Surface-Purchased", 
                                          primary_source_code == "GW" ~ "Ground", 
@@ -65,7 +73,7 @@ sabs <- demo$census %>%
                                          primary_source_code == "GWP" ~ "Ground-Purchased", 
                                          primary_source_code == "GU" ~ "Ground Influenced by Surface")) %>%
   left_join(owner_type_merge)%>%
-  select(pwsid, pws_name, county_served, area_miles, pop_density, estimate_total_pop,
+  select(pwsid, pws_name, city_name, area_miles, pop_density, estimate_total_pop,
          # grabbing all races
          estimate_white_alone_per:estimate_mixed_alone_per, 
          # grabbing age < 5
@@ -73,15 +81,18 @@ sabs <- demo$census %>%
          # grabbing education categories 
          estimate_bachelors_per:estimate_prof_degree_per,
          estimate_hisp_alone_per, estimate_laborforce_unemployed_per, 
-         estimate_hh_below_pov_per, pop_catagories,owner_type_description,primary_source_code, tier) %>%
+         estimate_hh_below_pov_per, pop_categories, owner_type_description, 
+         # grabbing method as a swap for tier 
+         primary_source_code, method) %>%
   as.data.frame() %>%
-  mutate(county_served = str_to_title(county_served))%>%
+  mutate(city_name = str_to_title(city_name))%>%
   mutate(pws_name = str_replace(pws_name,"WSC","Water Supply Corporation"))
 
 # reorganizing for clarity: 
 app_test_df <- analysis_keys %>%
   left_join(sabs) %>%
-  relocate(primary_source_code:pop_density, .after = east_tx_flag)  %>%
+  relocate(pws_name:city_name, .after = pwsid) %>%
+  relocate(pop_categories:method, .after = city_name)  %>%
   relocate(estimate_total_pop:estimate_hh_below_pov_per, .after = estimate_mhi)
 ```
 
@@ -140,14 +151,14 @@ write.csv(sab_region_tidy, file = paste0(tmp, ".csv"), row.names = FALSE)
 on.exit(unlink(tmp))
 put_object(
   file = paste0(tmp, ".csv"),
-  object = "/state-drinking-water/TX/clean/app/tx-pwsid-regions.csv",
+  object = "/state-drinking-water/TX/clean/app/tx-EPApwsid-regions.csv",
   bucket = "tech-team-data",
   acl = "public-read"
 )
 
 # reading pwsid regions from s3: 
 pwsid_regions <- aws.s3::s3read_using(read.csv, 
-                                      object = "s3://tech-team-data/state-drinking-water/TX/clean/app/tx-pwsid-regions.csv")
+                                      object = "s3://tech-team-data/state-drinking-water/TX/clean/app/tx-EPApwsid-regions.csv")
 
 # there's one less pwsid because it's over the border in AK (Texarkana region)
 ```
@@ -201,15 +212,16 @@ tract_geo <- tidycensus::get_acs(
   geometry = TRUE
 )
 
-cvi_tidy_final <- merge(tract_geo, cvi_crosswalk, by.x = "GEOID", by.y = "GEOID_TRACT_20", all.y = T)
+cvi_tidy_final <- merge(tract_geo, cvi_crosswalk, by.x = "GEOID", 
+                        by.y = "GEOID_TRACT_20", all.y = T)
 
 # using areal weighted interpolation to calculate the weighted mean CVI
 cvi_geo <- cvi_tidy_final %>%
   st_as_sf() %>%
-  st_transform(., crs = "ESRI:102296") 
+  st_transform(., crs = "EPSG:3663") 
 
 census_sf <- demo$census %>%
-  st_transform(., crs = "ESRI:102296") %>%  
+  st_transform(., crs = "EPSG:3663") %>%
   filter(!st_is_empty(.))%>%
   select(pwsid, geometry)
 
@@ -326,10 +338,10 @@ ejscreen_geo <- merge(water_haz, tract_geo, by.x = "id", by.y = "GEOID")
 # using areal interpolation to calculate mean proximity to water hazards: 
 ejscreen_geo <- ejscreen_geo %>%
   st_as_sf() %>%
-  st_transform(., crs = "ESRI:102296") 
+  st_transform(., crs = "EPSG:3663") 
 
 census_sf <- demo$census %>%
-  st_transform(., crs = "ESRI:102296") %>%  
+  st_transform(., crs = "EPSG:3663") %>%  
   filter(!st_is_empty(.))%>%
   select(pwsid, geometry)
 
@@ -385,10 +397,10 @@ cejst_2020 <- merge(cejst, full_crosswalk, by.x = "census_tract_2010_id",
 # exceeded: 
 cejst_geo <- cejst_2020 %>%
   st_as_sf() %>%
-  st_transform(., crs = "ESRI:102296") 
+  st_transform(., crs = "EPSG:3663") 
 
 census_sf <- demo$census %>%
-  st_transform(., crs = "ESRI:102296") %>%  
+  st_transform(., crs = "EPSG:3663") %>%  
   filter(!st_is_empty(.))%>%
   select(pwsid, geometry)
 
@@ -452,8 +464,8 @@ extra_vars_final <- merge(extra_vars_final, srf_year_funded, all.x = T) %>%
 app_test_df_simplified <- app_test_df %>%
   data.frame()%>%
   select(-c(geometry))%>%
-  left_join(.,tx_sab_simplified)%>%
-  left_join(.,pwsid_regions) %>%
+  left_join(., tx_sab_simplified)%>%
+  left_join(., pwsid_regions) %>%
   left_join(., extra_vars_final, by = "pwsid")
 ```
 
@@ -464,7 +476,7 @@ st_write(app_test_df_simplified, dsn = paste0(tmp, ".geojson"))
 on.exit(unlink(tmp))
 put_object(
   file = paste0(tmp, ".geojson"),
-  object = "/state-drinking-water/TX/clean/app/app-data-test.geojson",
+  object = "/state-drinking-water/TX/clean/app/app-epa-data-test.geojson",
   bucket = "tech-team-data",
   acl = "public-read"
 )
