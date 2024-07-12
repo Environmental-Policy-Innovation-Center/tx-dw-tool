@@ -157,7 +157,7 @@ server <- function(input, output, session) {
   waitress$inc(20) 
   # Raw Application Data
   tx_raw <- aws.s3::s3read_using(st_read, 
-                                 object = "state-drinking-water/TX/clean/app/app-data-test.geojson",
+                                 object = "state-drinking-water/TX/clean/app/app-epa-data-test.geojson",
                                  bucket = "tech-team-data", 
                                  quiet = TRUE)
   # TX Counties
@@ -175,6 +175,7 @@ server <- function(input, output, session) {
                                      quiet = TRUE)
   
   # Simpified TX Data
+  # TODO: this needs to be updated w/ new boundaries 
   tx_sab_super_simplified <- aws.s3::s3read_using(st_read, 
                                                   object = "state-drinking-water/TX/clean/app/tx-sab-super-simple-test.geojson",
                                                   bucket = "tech-team-data",
@@ -184,7 +185,7 @@ server <- function(input, output, session) {
 
   # Data Dictionary 
   suppressMessages({data_dict <- aws.s3::s3read_using(read.csv,
-                                                      object = "state-drinking-water/TX/clean/app/app-data-dict-test.csv",
+                                                      object = "state-drinking-water/TX/clean/app/app-epa-data-dict-test.csv",
                                                       bucket = "tech-team-data")})
   # Writing data dictionary to temp 
   dictionary_csv <- tempfile(pattern = "tx-app-data-dictionary", fileext = ".csv")
@@ -681,7 +682,7 @@ server <- function(input, output, session) {
       data.frame()%>%
       select(-c(geometry)) %>%
       mutate_if(is.numeric, round, digits = 2) %>%
-      select(-c("tier", "east_tx_flag")) %>%
+      # select(-c("tier", "east_tx_flag")) %>%
       relocate(pws_name)%>%
       mutate(pws_name = str_to_title(pws_name))
 

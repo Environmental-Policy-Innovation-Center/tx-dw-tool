@@ -35,7 +35,7 @@ tx_sab_simplified <- aws.s3::s3read_using(st_read,
 
 # loading latest data dictionary 
 gs4_deauth()
-URL <- "https://docs.google.com/spreadsheets/d/1bzNPxhL-l6DeGElhG1c70Of8DGAQasMDUuX3rPHVe2A/edit#gid=0"
+URL <- "https://docs.google.com/spreadsheets/d/1jhf-aNJB_91td4YvxaQS04olGYr4IDWyC-dC7UJP5FA/edit?gid=0#gid=0"
 data_dict <- read_sheet(URL, sheet = "var_names")
 ```
 
@@ -53,14 +53,8 @@ owner_type_merge <- data.frame(owner_type_code,owner_type_description)
 # tidying sabs dataset and grabbing key variables for the application: 
 analysis_keys <- keys$analysis_keys 
 
-# calculating population density in people/mile: 
-sabs <- demo$census %>%
-    mutate(area_miles = as.numeric(sf::st_area(.))) %>%
-    mutate(area_miles = area_miles/27880000) %>%
-    mutate(pop_density = estimate_total_pop / area_miles)
-
 # refactoring columns: 
-sabs <- sabs %>%
+sabs <- demo$census %>%
   mutate(pop_categories = ifelse(estimate_total_pop > 0, "Very Small 0-1k", "Very Small (0 - 1,000)"))%>%
   mutate(pop_categories = ifelse(estimate_total_pop >= 1001, "Small 1k-3.3k", pop_categories))%>%
   mutate(pop_categories = ifelse(estimate_total_pop >= 3301, "Medium 3.3k-10k", pop_categories))%>%
@@ -73,7 +67,7 @@ sabs <- sabs %>%
                                          primary_source_code == "GWP" ~ "Ground-Purchased", 
                                          primary_source_code == "GU" ~ "Ground Influenced by Surface")) %>%
   left_join(owner_type_merge)%>%
-  select(pwsid, pws_name, city_name, area_miles, pop_density, estimate_total_pop,
+  select(pwsid, pws_name, county_served, area_miles, pop_density, estimate_total_pop,
          # grabbing all races
          estimate_white_alone_per:estimate_mixed_alone_per, 
          # grabbing age < 5
@@ -85,14 +79,14 @@ sabs <- sabs %>%
          # grabbing method as a swap for tier 
          primary_source_code, method) %>%
   as.data.frame() %>%
-  mutate(city_name = str_to_title(city_name))%>%
+  mutate(county_served = str_to_title(county_served))%>%
   mutate(pws_name = str_replace(pws_name,"WSC","Water Supply Corporation"))
 
 # reorganizing for clarity: 
 app_test_df <- analysis_keys %>%
   left_join(sabs) %>%
-  relocate(pws_name:city_name, .after = pwsid) %>%
-  relocate(pop_categories:method, .after = city_name)  %>%
+  relocate(pws_name:county_served, .after = pwsid) %>%
+  relocate(pop_categories:method, .after = county_served)  %>%
   relocate(estimate_total_pop:estimate_hh_below_pov_per, .after = estimate_mhi)
 ```
 
@@ -484,12 +478,12 @@ put_object(
 
 ## Saving data dictionary to s3: 
 ```{r}
-filename <- "app-data-dict-test.csv"
+filename <- "app-epa-data-dict-test.csv"
 data.table::fwrite(data_dict, file.path(tempdir(), filename))
 
 put_object(
   file = file.path(tempdir(), filename),
-  object = "/state-drinking-water/TX/clean/app/app-data-dict-test.csv",
+  object = "/state-drinking-water/TX/clean/app/app-epa-data-dict-test.csv",
   bucket = "tech-team-data",
   acl = "public-read"
 )
