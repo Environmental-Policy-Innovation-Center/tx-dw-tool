@@ -188,9 +188,7 @@ server <- function(input, output, session) {
                                                       object = "state-drinking-water/TX/clean/app/app-epa-data-dict-test.csv",
                                                       bucket = "tech-team-data")})
   # Writing data dictionary to temp 
-  dictionary_csv <- tempfile(pattern = "tx-app-data-dictionary", fileext = ".csv")
-  write.csv(data_dict, file = dictionary_csv)
-
+  write.csv(data_dict, file.path(tempdir(), "tx-app-data-dictionary.csv"), row.names = FALSE)
   suppressWarnings({report <- aws.s3::s3read_using(readLines,object = "state-drinking-water/TX/clean/app/tx-report-test.Rmd",
                                                    bucket = "tech-team-data")})
 

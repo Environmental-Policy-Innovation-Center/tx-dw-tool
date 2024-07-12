@@ -36,7 +36,8 @@ tx_sab_simplified <- aws.s3::s3read_using(st_read,
 # loading latest data dictionary 
 gs4_deauth()
 URL <- "https://docs.google.com/spreadsheets/d/1jhf-aNJB_91td4YvxaQS04olGYr4IDWyC-dC7UJP5FA/edit?gid=0#gid=0"
-data_dict <- read_sheet(URL, sheet = "var_names")
+data_dict <- read_sheet(URL, sheet = "var_names") %>% 
+  mutate(vintage = as.character(vintage))
 ```
 
 ## Creating base application data: 
