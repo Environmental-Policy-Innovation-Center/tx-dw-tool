@@ -157,7 +157,7 @@ server <- function(input, output, session) {
   waitress$inc(20) 
   # Raw Application Data
   tx_raw <- aws.s3::s3read_using(st_read, 
-                                 object = "state-drinking-water/TX/clean/app/app-epa-data-test.geojson",
+                                 object = "state-drinking-water/TX/clean/app/app-data-dev.geojson",
                                  bucket = "tech-team-data", 
                                  quiet = TRUE)
   # TX Counties
@@ -185,11 +185,11 @@ server <- function(input, output, session) {
 
   # Data Dictionary 
   suppressMessages({data_dict <- aws.s3::s3read_using(read.csv,
-                                                      object = "state-drinking-water/TX/clean/app/app-epa-data-dict-test.csv",
+                                                      object = "state-drinking-water/TX/clean/app/app-data-dict-dev.csv",
                                                       bucket = "tech-team-data")})
   # Writing data dictionary to temp 
   write.csv(data_dict, file.path(tempdir(), "tx-app-data-dictionary.csv"), row.names = FALSE)
-  suppressWarnings({report <- aws.s3::s3read_using(readLines,object = "state-drinking-water/TX/clean/app/tx-report-test.Rmd",
+  suppressWarnings({report <- aws.s3::s3read_using(readLines,object = "state-drinking-water/TX/clean/app/tx-report-dev.Rmd",
                                                    bucket = "tech-team-data")})
 
   drive_deauth()

@@ -471,7 +471,7 @@ st_write(app_test_df_simplified, dsn = paste0(tmp, ".geojson"))
 on.exit(unlink(tmp))
 put_object(
   file = paste0(tmp, ".geojson"),
-  object = "/state-drinking-water/TX/clean/app/app-epa-data-test.geojson",
+  object = "/state-drinking-water/TX/clean/app/app-data-dev.geojson",
   bucket = "tech-team-data",
   acl = "public-read"
 )
@@ -479,12 +479,12 @@ put_object(
 
 ## Saving data dictionary to s3: 
 ```{r}
-filename <- "app-epa-data-dict-test.csv"
+filename <- "app-data-dict-dev.csv"
 data.table::fwrite(data_dict, file.path(tempdir(), filename))
 
 put_object(
   file = file.path(tempdir(), filename),
-  object = "/state-drinking-water/TX/clean/app/app-epa-data-dict-test.csv",
+  object = "/state-drinking-water/TX/clean/app/app-data-dict-dev.csv",
   bucket = "tech-team-data",
   acl = "public-read"
 )
@@ -498,7 +498,7 @@ filepath <- "./app/tx-report.Rmd"
 
 put_object(
   file = file.path(filepath),
-  object = "/state-drinking-water/TX/clean/app/tx-report-test.Rmd",
+  object = "/state-drinking-water/TX/clean/app/tx-report-dev.Rmd",
   bucket = "tech-team-data",
   acl = "public-read"
 )
