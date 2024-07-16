@@ -782,7 +782,7 @@ server <- function(input, output, session) {
     HTML("EPIC makes no assurances to the accuracy of the tools data. All underlying code, methods, and data are available under a Creative Commons License."),
     HTML("<br>"),
     HTML("<br>"),
-    HTML("<i>", "Last updated: ", "May 20, 2024", "</i>"),
+    HTML("<i>", "Last updated: ", "July 16, 2024", "</i>"),
 
     easyClose = FALSE,
     footer = modalButton("Close"),
