@@ -679,7 +679,6 @@ server <- function(input, output, session) {
       data.frame()%>%
       select(-c(geometry)) %>%
       mutate_if(is.numeric, round, digits = 2) %>%
-      select(-c("tier", "east_tx_flag")) %>%
       relocate(pws_name)%>%
       mutate(pws_name = str_to_title(pws_name))
 
@@ -729,7 +728,7 @@ server <- function(input, output, session) {
   ## Info Modal ##
   ################
   InfoModal <- modalDialog(
-    title = HTML("<b> Texas Community Water System Prioritization Tool - Version 1.1 </b>"),
+    title = HTML("<b> Texas Community Water System Prioritization Tool - Version 1.2 </b>"),
     HTML("<b> Quick Start: </b>"),
     HTML("<br>"),
     icon(name = "map-location-dot", lib = "font-awesome", style = "font-size: 17px"),
