@@ -175,9 +175,8 @@ server <- function(input, output, session) {
                                      quiet = TRUE)
   
   # Simpified TX Data
-  # TODO: this needs to be updated w/ new boundaries 
   tx_sab_super_simplified <- aws.s3::s3read_using(st_read, 
-                                                  object = "state-drinking-water/TX/clean/app/tx-sab-super-simple-test.geojson",
+                                                  object = "state-drinking-water/TX/clean/app/tx-sab-super-simple-dev.geojson",
                                                   bucket = "tech-team-data",
                                                   quiet = TRUE)
   # increase by 20
@@ -730,7 +729,7 @@ server <- function(input, output, session) {
   ## Info Modal ##
   ################
   InfoModal <- modalDialog(
-    title = HTML("<b> Texas Community Water System Prioritization Tool - Version 1.1 </b>"),
+    title = HTML("<b> Texas Community Water System Prioritization Tool - Version 1.2 </b>"),
     HTML("<b> Quick Start: </b>"),
     HTML("<br>"),
     icon(name = "map-location-dot", lib = "font-awesome", style = "font-size: 17px"),
