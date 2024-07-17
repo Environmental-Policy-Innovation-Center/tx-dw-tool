@@ -18,7 +18,7 @@ Open a terminal
 cd to the working directory
 `docker build --tag [tx-app] .`
 Grab a cup off coffee while it compiles.
-Type `docker images` to see built containers and verify your [tx-app] built succesfully. 
+Type `docker images` to see built containers and verify your [tx-app] built successfully. 
 Type `docker run -p 2000:2000 [tx-app]` to run the application. 
 
 # Important links 
