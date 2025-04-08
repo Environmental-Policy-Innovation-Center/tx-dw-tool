@@ -26,9 +26,9 @@ env:
   ECS_SERVICE_SHORT_NAME: tx
   ECR_SERVICE_BUILDER_IMAGE: 516937823875.dkr.ecr.us-east-1.amazonaws.com/ep_service_builder:latest
 
-  EC2_SERVICE_INSTANCE_TYPE: t3.large
+  EC2_SERVICE_INSTANCE_TYPE: c6i.xlarge
   EC2_SERVICE_INSTANCE_COUNT: 2
-  ECS_SERVICE_CONTAINER_RAM_MB: 1800
+  ECS_SERVICE_CONTAINER_RAM_MB: 7000
 
 #----------------------------
 jobs:
@@ -141,7 +141,16 @@ jobs:
       run: |
 
         sudo apt-get update
-        sudo apt-get install -y awscli jq
+        sudo apt-get install -y curl unzip jq
+        
+        sudo /usr/local/aws-cli/v2/current/bin/aws --version || true  # Show existing version
+
+        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"
+        unzip /tmp/awscliv2.zip -d /tmp
+        sudo /tmp/aws/install --update
+        rm -rf /tmp/awscliv2.zip /tmp/aws
+        
+        aws --version
 
         #-----------------------
         # 1. Describe the task definition
